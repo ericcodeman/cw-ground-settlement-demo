@@ -2,19 +2,19 @@
   "schema": 1,
   "name": "CW Monitoring — Browser Trial",
   "sourceVersion": "71295f05ba764dd3f4c0d3a59519c6a65e14c0ea",
-  "build": "browser-trial-a46b2cfe6ab6b86b",
+  "build": "browser-trial-7776a4da6227bc6c",
   "methods": [
     "Original Ordinary Kriging",
     "Original monitoring report snapshot and PDFKit layout",
     "Original Structure and UU calculation cores"
   ],
   "storage": "Independent page memory; explicit JSON export/import; refresh resets data",
-  "payloadHash": "a46b2cfe6ab6b86b5dc8e5f4184a51fd8e258f5b41cdfe520c47565b5d773be3",
+  "payloadHash": "7776a4da6227bc6c29ca72979470f5c89d3fabf1601c88ef4d45bf384ab83b06",
   "files": [
     {
       "name": "THIRD-PARTY-NOTICES.md",
-      "bytes": 6480,
-      "sha256": "2e60f79604d65c49f0c9d9de21c33eb62587dad3b9d01bd7f05fefcc976f617a"
+      "bytes": 6788,
+      "sha256": "bf6ac1a591e2c595ebb5d8e941d5212bc2637c09d04327589595c5e11e04821a"
     },
     {
       "name": "contour-background.js",
@@ -38,8 +38,8 @@
     },
     {
       "name": "font.ttf",
-      "bytes": 11906752,
-      "sha256": "cebb07d6deb97f6457f468b0f4ea4eb710093315b15b134dfd52436d7c89c290"
+      "bytes": 180976,
+      "sha256": "a31d91380148cd39b46aa5f4257d8f7b851d099d8420e5e9422db8050b578d9b"
     },
     {
       "name": "images/layers-2x.png",

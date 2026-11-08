@@ -2,8 +2,8 @@
 
 Product source version: `71295f05ba764dd3f4c0d3a59519c6a65e14c0ea`.
 Isolated authoring commit: `96e597f` (not pushed to the private product branches).
-Browser build: `browser-trial-a46b2cfe6ab6b86b`.
-Payload SHA256: `a46b2cfe6ab6b86b5dc8e5f4184a51fd8e258f5b41cdfe520c47565b5d773be3`.
+Browser build: `browser-trial-7776a4da6227bc6c`.
+Payload SHA256: `7776a4da6227bc6c29ca72979470f5c89d3fabf1601c88ef4d45bf384ab83b06`.
 
 ## Local checks
 
@@ -36,3 +36,11 @@ The first standalone package test lacked its synthetic Structure fixture; this w
 Only manifest-listed site files deploy. No private history, server, credentials, real project data, uploads or diagnostics are included. Third-party source notices and font license are supplied. The original application is not relicensed. Build-tool audit found four low-severity transitive issues through unused crypto-browserify/elliptic; the actual shipping inventory excludes elliptic after narrowing the crypto adapter. This is not an exhaustive security certification.
 
 Real authorization, multi-user approval, email, central audit, deployment capacity and R6 engineering acceptance are not provided. Current data is page-local memory; export before refresh. GitHub Actions and actual anonymous HTTPS acceptance must be checked separately; local success alone is not deployment evidence.
+
+## Public first-download correction
+
+Initial deployment 17797be5c7f25a95279fd6672d3166d6e4260216 passed Linux/Chromium Verify and Pages deployment (run 42456943878, attempt 1). Actual anonymous HTTPS testing then failed: the original 11,906,752-byte font did not finish downloading within the existing 30-second request/download test window. The initial Ground and identity failures are retained; this was not treated as completed acceptance.
+
+The trial font now contains every original cmap character permitted by the original English-output policy (417 codepoints), using fontTools 4.60.1. Its 180,976 bytes retain the original glyph outlines, advances and sampled shaping. All 32 rendered pages across fixed, 22-page long, filtered and empty-period snapshots are byte-identical to the original-font render. No timeout, engineering algorithm, report layout or original source font was changed. The first regression attempt explicitly exposed fontkit's U+FFFF cmap terminator; it is now separately asserted to map to glyph zero, rather than treated as a printable character.
+
+This candidate requires its own exact-checkout CI and anonymous HTTPS retest. Earlier deployment evidence is not substituted for it.

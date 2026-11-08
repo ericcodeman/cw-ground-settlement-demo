@@ -93,3 +93,5 @@ These notices apply to third-party components only. No new license is granted fo
 Font: Noto Sans HK variable font, SIL OFL 1.1; see licenses/NotoSansHK-OFL.txt.
 Map: OpenStreetMap contributors; tiles are requested directly, not distributed in this payload. See https://operations.osmfoundation.org/policies/tiles/.
 Brotli includes Apache-2.0 Google code as identified in retained source headers; the Apache-2.0 text is supplied with @swc/helpers. Package declarations and source notices are preserved, not relicensed.
+
+The distributed font.ttf is a subset of the original Noto Sans HK font, generated with fontTools 4.60.1. It preserves every original cmap character admitted by the original English report policy, glyph outlines, metrics and layout. The original font is unchanged. This derivative remains under SIL OFL 1.1.
