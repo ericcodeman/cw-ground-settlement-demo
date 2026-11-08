@@ -1,3 +1,5 @@
+**Final acceptance:** see [Deployment verification](DEPLOYMENT-VERIFICATION-2026-11-08.md). The pending gates below are preserved historical candidate records.
+
 # Candidate verification
 
 Product source version: `71295f05ba764dd3f4c0d3a59519c6a65e14c0ea`.
@@ -48,3 +50,4 @@ This candidate requires its own exact-checkout CI and anonymous HTTPS retest. Ea
 ## First correction CI failure retained
 
 Run 42460412921 attempt 1 tested exact checkout 34624b91fb8ce815bd506173603e2962715eacc5. Payload verification passed, but Ground browser testing failed because the test read an empty status message immediately after observing the data commit. The original UI awaits further refresh work before publishing its completion message. Deployment was skipped. The test now waits for the exact completed-save message, and CSV also waits for the preview dialog to close; record values and exact message assertions remain mandatory. No product code, timeout or fixed sleep changed. The remaining seven suites were not run in that failed attempt; they are not reported as passed.
+
