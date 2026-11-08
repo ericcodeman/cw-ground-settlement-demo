@@ -44,3 +44,7 @@ Initial deployment 17797be5c7f25a95279fd6672d3166d6e4260216 passed Linux/Chromiu
 The trial font now contains every original cmap character permitted by the original English-output policy (417 codepoints), using fontTools 4.60.1. Its 180,976 bytes retain the original glyph outlines, advances and sampled shaping. All 32 rendered pages across fixed, 22-page long, filtered and empty-period snapshots are byte-identical to the original-font render. No timeout, engineering algorithm, report layout or original source font was changed. The first regression attempt explicitly exposed fontkit's U+FFFF cmap terminator; it is now separately asserted to map to glyph zero, rather than treated as a printable character.
 
 This candidate requires its own exact-checkout CI and anonymous HTTPS retest. Earlier deployment evidence is not substituted for it.
+
+## First correction CI failure retained
+
+Run 42460412921 attempt 1 tested exact checkout 34624b91fb8ce815bd506173603e2962715eacc5. Payload verification passed, but Ground browser testing failed because the test read an empty status message immediately after observing the data commit. The original UI awaits further refresh work before publishing its completion message. Deployment was skipped. The test now waits for the exact completed-save message, and CSV also waits for the preview dialog to close; record values and exact message assertions remain mandatory. No product code, timeout or fixed sleep changed. The remaining seven suites were not run in that failed attempt; they are not reported as passed.
