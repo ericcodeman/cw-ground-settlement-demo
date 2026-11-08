@@ -1,0 +1,17 @@
+{
+  "name": "cw-monitoring-browser-trial",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "verify": "node scripts/verify.js",
+    "test": "node scripts/test.js",
+    "start": "node scripts/serve.js"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1",
+    "pdfjs-dist": "6.4.299"
+  }
+}

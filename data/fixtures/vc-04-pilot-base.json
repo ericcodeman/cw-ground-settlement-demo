@@ -1,0 +1,37 @@
+{
+  "projectName": "VC-04 Measured Workflow Pilot — Synthetic Data",
+  "monitoringApproach": "3A",
+  "thresholdSettings": {
+    "ground": {
+      "alert": 10,
+      "alarm": 16,
+      "action": 20,
+      "action1": 20,
+      "action2": 25,
+      "action3": 30
+    }
+  },
+  "points": [
+    { "id": "PSM01", "baseline": 10, "facility": "Synthetic Zone A", "type": "SM", "rule": "ground", "easting": 835000, "northing": 820000 },
+    { "id": "PSM02", "baseline": 10, "facility": "Synthetic Zone A", "type": "SM", "rule": "ground", "easting": 835100, "northing": 820000 },
+    { "id": "PSM03", "baseline": 10, "facility": "Synthetic Zone B", "type": "SM", "rule": "ground", "easting": 835100, "northing": 820100 },
+    { "id": "PSM04", "baseline": 10, "facility": "Synthetic Zone B", "type": "SM", "rule": "ground", "easting": 835000, "northing": 820100 }
+  ],
+  "records": [
+    { "pointId": "PSM01", "date": "2026-09-01", "reading": 9.998, "note": "Synthetic pilot baseline observation" },
+    { "pointId": "PSM02", "date": "2026-09-01", "reading": 9.998, "note": "Synthetic pilot baseline observation" },
+    { "pointId": "PSM03", "date": "2026-09-01", "reading": 9.998, "note": "Synthetic pilot baseline observation" },
+    { "pointId": "PSM04", "date": "2026-09-01", "reading": 9.998, "note": "Synthetic pilot baseline observation" }
+  ],
+  "contacts": [
+    { "id": "pilot-reviewer", "name": "Pilot Review Engineer", "email": "pilot-reviewer@example.invalid", "company": "Synthetic Project", "role": "Reviewer", "active": true, "isSignatory": true }
+  ],
+  "reminderRules": [
+    { "id": "pilot-alarm-rule", "name": "Synthetic Alarm review", "approach": "3A", "levelKey": "alarm", "enabled": true, "contactIds": ["pilot-reviewer"] }
+  ],
+  "reminderLog": [],
+  "followupEvents": [],
+  "layoutPlans": [],
+  "layoutPoints": [],
+  "activeLayoutPlanId": ""
+}

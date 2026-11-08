@@ -1,0 +1,98 @@
+.plan-workspace { display: grid; grid-template-columns: minmax(230px, 280px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.plan-library { position: sticky; top: 82px; max-height: calc(100vh - 100px); overflow: auto; }
+.plan-list { display: grid; gap: 8px; margin-top: 16px; }
+.plan-list-item { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--navy); text-align: left; cursor: pointer; }
+.plan-list-item:hover, .plan-list-item.active { border-color: var(--engineering-blue); box-shadow: 0 0 0 2px rgba(23,105,170,.12); }
+.plan-list-item strong, .plan-list-item span { display: block; }
+.plan-list-item span { margin-top: 3px; color: var(--muted); font-size: .78rem; }
+.plan-upload-form, .plan-detail-panel form { display: grid; gap: 12px; }
+.plan-upload-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.plan-upload-form label, .plan-detail-panel label, .plan-filterbar label, .plan-toolbar label { display: grid; gap: 5px; color: var(--muted); font-size: .78rem; font-weight: 700; }
+.compact-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.plan-empty { min-height: 520px; display: grid; place-content: center; gap: 8px; text-align: center; color: var(--muted); }
+.plan-empty strong { color: var(--navy); font-size: 1.05rem; }
+.plan-heading { margin-bottom: 12px; }
+.save-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; font-size: .76rem; font-weight: 800; }
+.save-status.saved { color: #12633f; background: #e8f5ed; }
+.save-status.saving, .save-status.unsaved { color: #7a4a00; background: #fff3d8; }
+.plan-toolbar, .plan-filterbar { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; padding: 10px; border: 1px solid var(--line); background: #f7f9fb; }
+.plan-filterbar { margin-top: 8px; }
+.plan-toolbar select, .plan-filterbar select, .plan-filterbar input { min-width: 130px; }
+.check-label { grid-auto-flow: column; align-items: center; align-self: center; }
+.check-label input { width: auto; }
+.plan-viewer-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; margin-top: 12px; }
+.plan-stage-wrap { position: relative; min-height: 560px; overflow: hidden; border: 1px solid #8fa2b3; border-radius: 6px; background-color: #dce3e9; background-image: linear-gradient(rgba(37,62,82,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(37,62,82,.07) 1px, transparent 1px); background-size: 20px 20px; touch-action: none; }
+.plan-stage-wrap.placement { cursor: crosshair; outline: 3px solid rgba(220,107,32,.25); }
+.plan-stage-wrap:focus-visible { outline: 3px solid rgba(23,105,170,.35); outline-offset: 2px; }
+.plan-loading { position: absolute; inset: 0; display: grid; place-content: center; background: rgba(255,255,255,.82); color: var(--navy); font-weight: 800; z-index: 3; }
+.plan-detail-panel { min-height: 560px; padding: 14px; border: 1px solid var(--line); border-radius: 6px; background: #f9fafb; overflow: auto; }
+.plan-detail-panel textarea { resize: vertical; }
+.full-button { width: 100%; justify-content: center; }
+.plan-legend { display: flex; flex-wrap: wrap; gap: 7px 12px; margin-top: 10px; }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .74rem; }
+.legend-symbol { display: inline-grid; width: 20px; height: 20px; place-content: center; color: #0d4f80; font-weight: 900; font-size: .88rem; border: 1px solid #9fb1bf; background: white; }
+.plan-notice { margin: 10px 0 0; padding: 8px 10px; border-left: 3px solid var(--safety-orange); background: #fff8ed; color: #654319; font-size: .75rem; }
+.pdf-pages { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 10px; padding-bottom: 4px; }
+.pdf-page { flex: 0 0 104px; border: 2px solid transparent; border-radius: 6px; padding: 4px; background: #edf1f4; color: var(--navy); cursor: pointer; }
+.pdf-page.active { border-color: var(--engineering-blue); }
+.pdf-page canvas { display: block; width: 94px; height: 72px; object-fit: contain; background: white; }
+.pdf-page span { display: block; margin-top: 3px; font-size: .72rem; }
+@media (max-width: 1180px) { .plan-workspace { grid-template-columns: 1fr; } .plan-library { position: static; max-height: none; } .plan-viewer-grid { grid-template-columns: 1fr; } .plan-detail-panel { min-height: auto; } }
+@media (max-width: 700px) { .plan-stage-wrap { min-height: 430px; } .compact-grid { grid-template-columns: 1fr; } .plan-toolbar > *, .plan-filterbar > * { flex: 1 1 130px; } }
+
+.dashboard-plan-image { position: absolute; max-width: none; user-select: none; pointer-events: none; }
+.dashboard-layout-point { position: absolute; z-index: 2; display: grid; place-items: center; width: 26px; height: 26px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; background: var(--surface); color: var(--engineering-blue-dark); box-shadow: 0 2px 7px rgba(11,31,58,.28); font-size: 15px; font-weight: 900; }
+.dashboard-layout-point[data-installation="inactive"], .dashboard-layout-point[data-installation="removed"] { opacity: .58; }
+.dashboard-layout-label { position: absolute; z-index: 3; transform: translate(12px, -50%); padding: 2px 5px; border: 1px solid var(--line-strong); border-radius: 3px; background: rgba(255,255,255,.94); color: var(--navy); font-size: 10px; font-weight: 750; white-space: nowrap; pointer-events: none; }
+.dashboard-layout-meta { position: absolute; inset: auto 8px 8px 8px; z-index: 4; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; padding: 6px 8px; border-radius: 4px; background: rgba(11,31,58,.86); color: #fff; font-size: 10px; }
+
+#layoutPlans.hidden,
+#layoutPlans .hidden {
+  display: none !important;
+}
+
+:root[data-theme="dark"] .plan-list-item,
+:root[data-theme="dark"] .plan-detail-panel,
+:root[data-theme="dark"] .plan-toolbar,
+:root[data-theme="dark"] .plan-filterbar {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .plan-list-item,
+:root[data-theme="dark"] .plan-empty strong {
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .plan-stage-wrap {
+  border-color: var(--line-strong);
+  background-color: #111a24;
+  background-image: linear-gradient(rgba(117,188,237,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(117,188,237,.06) 1px, transparent 1px);
+}
+
+:root[data-theme="dark"] .plan-loading {
+  background: rgba(23,34,48,.9);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .legend-symbol,
+:root[data-theme="dark"] .dashboard-layout-label {
+  background: rgba(23,34,48,.94);
+  color: #9dd3f5;
+}
+
+:root[data-theme="dark"] .plan-notice {
+  background: #392d1d;
+  color: #f4ce92;
+}
+
+:root[data-theme="dark"] .save-status.saved {
+  color: #83dfae;
+  background: #163b2c;
+}
+
+:root[data-theme="dark"] .save-status.saving,
+:root[data-theme="dark"] .save-status.unsaved {
+  color: #ffd07b;
+  background: #493611;
+}
