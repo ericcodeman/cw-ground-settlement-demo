@@ -1,4 +1,4 @@
-# CW Monitoring — Browser Trial
+# SenseOne — Browser Trial
 
 Browser-based single-user trial. **Synthetic/test data only. Local workflow simulation. Not for engineering decisions.**
 
@@ -8,7 +8,7 @@ This publication preserves the original monitoring interface and calculation mod
 
 Open the GitHub Pages project site after its manual deployment succeeds. No account, password, installation or backend is needed. Do not enter confidential, personal or real project data.
 
-The trial starts with four synthetic markers. Download `site/synthetic-monitoring-records.csv` and use Monitoring Records → Choose CSV → review → confirm. It contains ten further days, with settlement increasing by 2 mm per day at each marker, plus synthetic spatial differences. Negative settlement means downward movement. It is test data, not an approved criterion or survey record.
+The trial starts with four synthetic markers. Download `site/synthetic-monitoring-records.csv` and use Data input → Monitoring records → Choose CSV → review → confirm. It contains ten further days, with settlement increasing by 2 mm per day at each marker, plus synthetic spatial differences. Negative settlement means downward movement. It is test data, not an approved criterion or survey record.
 
 ## Interactive capabilities
 
@@ -18,18 +18,19 @@ The trial starts with four synthetic markers. Download `site/synthetic-monitorin
 - Structure registration, configuration, baseline/current observations, assessments, history, criteria, GIS and local follow-up.
 - Utility assets/segments, criteria applicability, informed missing-criteria confirmation, Review, differential settlement, relative slope, schematic GIS and local follow-up.
 - PNG/JPEG Layout upload, relative point placement and reopening via a trial data package.
-- Current-data report snapshot, preview and real English PDF using original PDFKit layout; earlier snapshots remain independent of later edits.
-- Local project creation/switching, explicit JSON package export/import and Reset.
+- Current-data report snapshot, preview and real English or Traditional Chinese PDF using original PDFKit layout; earlier snapshots remain independent of later edits.
+- Today workbench, observation review and history, simulated notification tracking, shared analysis filters, project switching and Reset.
+- Complete backup with capacity and replacement previews, archived snapshots/PDFs and an in-session recovery copy.
 
 ## Local simulation and limitations
 
 Role selection is a viewpoint demonstration, not authentication or access security. Workflow ownership, criteria approval and acknowledgment are local simulations, not verified approval by another person. No email is sent. No private GitHub API or application backend is used.
 
-Data lives in the current page's memory. Refresh/closing the page resets it. Use **Export trial data** before leaving and **Import trial data** to restore a self-contained JSON package (maximum 16 MB, 20 projects). Separate tabs and browser contexts have independent project data. This is not cloud storage, permanent backup or cross-device synchronization. Optional unfinished-input recovery is separately labelled and browser-local; do not enable it on shared devices. Reset does not clear other applications' origin storage.
+Project data lives in page memory. Refresh or closing the page resets it. Before leaving, use **Reports → Report archive and data transfer** to export a complete backup (64 MiB maximum). The archive includes project data and eligible attachments, saved report snapshots and any original PDFs you generated and saved to the archive. Restore replaces the current trial data after preview and confirmation. Limited **Export project JSON / Import project JSON** remains available for project-data transfer (16 MiB, 20 projects) and omits report snapshots and PDFs. Browser-local preferences and optional unfinished-input recovery are separate. Keep downloaded backups privately and use synthetic data only; never treat the trial as durable or shared storage.
 
-Reports and their hashes identify a local snapshot; they are not a digital signature or tamper-proof audit. Ground historic statuses are evaluated against captured current rules, as labelled. Missing criteria is not Normal. Closing a workflow does not clear engineering severity. Grid azimuth is not true north; a zero displacement has no direction. UU connectors are schematic, not verified underground alignment. Contours are interpolation, not a verified survey surface. UU angular-deformation alarms and new instruments are not provided.
+Reports and their hashes identify a local snapshot; they are not a digital signature or tamper-proof audit. Captured historical Ground judgments and separate current-rule comparisons are labelled. Missing historical evidence is shown as unknown. Missing criteria is not Normal. Closing a workflow does not clear engineering severity. Grid azimuth is not true north; a zero displacement has no direction. UU connectors are schematic, not verified underground alignment. Contours are interpolation, not a verified survey surface. UU angular-deformation alarms and new instruments are not provided.
 
-Large datasets can block the browser while the original synchronous algorithm runs. Small synthetic timing probes are not production capacity approval. PDF generation fetches a 181 KB subset of the original Noto font, retaining every original character supported by the English report policy. The original and subset produced identical rendered pages in the fixed, long, filtered and empty-period report tests. Original report pagination and explicit ellipsis for long table notes are retained; full text remains in the data package.
+Large datasets can block the browser while the original synchronous algorithm runs. Small synthetic timing probes are not production capacity approval. English PDFs use an approximately 181 KB Noto Sans HK subset. Traditional Chinese PDFs fetch the approximately 11.9 MB full font on demand, so the first Chinese PDF can take longer. Original report pagination and explicit ellipsis for long table notes are retained; full text remains in the data package.
 
 External network requests: this site's static resources and bounded OpenStreetMap tiles only. Maps require Internet access; blocked tiles show an explicit error while numerical data remains available. No telemetry or monitoring-data delivery is configured. Do not bulk-download tiles. Attribution and third-party notices are retained in `site/THIRD-PARTY-NOTICES.md`.
 

@@ -14,6 +14,7 @@
   };
 
   const $ = id => document.getElementById(id);
+  const uploadSuccessMessage = "Layout plan uploaded and saved.";
   const ui = {};
   let activePlanId = "";
   let selectedPointId = "";
@@ -62,7 +63,7 @@
 
   function renderPlanList() {
     ui.planList.innerHTML = state.layoutPlans.length ? state.layoutPlans.map(plan => `<button class="plan-list-item ${plan.id === activePlanId ? "active" : ""}" type="button" data-plan-id="${escapeHtml(plan.id)}"><strong>${escapeHtml(plan.drawingTitle)}</strong><span>${escapeHtml([plan.drawingNumber, plan.revision && `Rev ${plan.revision}`].filter(Boolean).join(" · ") || plan.originalFileName)}</span></button>`).join("") : '<p class="empty">No layout plans uploaded.</p>';
-    ui.deletePlanButton.disabled = !activePlanId || !canEdit();
+    ui.deletePlanButton.disabled = !activePlanId || !hasCapability('trial:configure');
   }
 
   function setSaveStatus(label, kind) {
@@ -71,7 +72,7 @@
   }
 
   function autoSave() {
-    if (!canEdit()) return;
+    if (!hasCapability('trial:configure')) return;
     markStateDirty();
     const generation = ++saveGeneration;
     setSaveStatus("Unsaved", "unsaved");
@@ -95,7 +96,7 @@
   }
   function undo() { if (preventPointDraftLoss()) return; const item = history(); if (!item.undo.length) return; item.redo.push(snapshot()); restoreSnapshot(item.undo.pop()); updateHistoryButtons(); }
   function redo() { if (preventPointDraftLoss()) return; const item = history(); if (!item.redo.length) return; item.undo.push(snapshot()); restoreSnapshot(item.redo.pop()); updateHistoryButtons(); }
-  function updateHistoryButtons() { const item = activePlanId ? history() : { undo: [], redo: [] }; ui.undoPlan.disabled = !item.undo.length || !canEdit(); ui.redoPlan.disabled = !item.redo.length || !canEdit(); }
+  function updateHistoryButtons() { const item = activePlanId ? history() : { undo: [], redo: [] }; ui.undoPlan.disabled = !item.undo.length || !hasCapability('trial:configure'); ui.redoPlan.disabled = !item.redo.length || !hasCapability('trial:configure'); }
 
   async function fileToDataUrl(file) {
     return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error("The selected file could not be read.")); reader.readAsDataURL(file); });
@@ -139,14 +140,15 @@
 
   async function handleUpload(event) {
     event.preventDefault();
-    if (!canEdit() || uploading) return;
+    if (!hasCapability('trial:configure') || uploading) return;
     if (preventPointDraftLoss()) return;
     if (saveBlocked) { ui.planUploadMessage.textContent = "Resolve the previous save failure before uploading another plan."; return; }
     const file = ui.planFileInput.files[0];
     const validation = core.validateFileMetadata(file);
     if (!validation.valid) { ui.planUploadMessage.textContent = validation.error; return; }
     uploading = true;
-    ui.planUploadMessage.textContent = "Validating and preserving original file…";
+    const pendingMessage = "Validating and preserving original file…";
+    ui.planUploadMessage.textContent = pendingMessage;
     try {
       const dataUrl = await fileToDataUrl(file);
       const dimensions = await inspectFile(dataUrl, validation.fileType);
@@ -164,15 +166,22 @@
       ui.planProjectName.value = "Settlement Monitoring — Hong Kong";
       window.monitoringDrafts?.clear(ui.planUploadForm);
       renderPlanList(); await openPlan(plan.id);
-    } catch (error) { ui.planUploadMessage.textContent = error.message || "The layout plan could not be uploaded."; }
+      if (ui.planUploadMessage.textContent === pendingMessage) {
+        ui.planUploadMessage.textContent = state.layoutPlans.some(item => item.id === plan.id) ? uploadSuccessMessage : "";
+      }
+    } catch (error) {
+      if (ui.planUploadMessage.textContent === pendingMessage) {
+        ui.planUploadMessage.textContent = error.message || "The layout plan could not be uploaded.";
+      }
+    }
     finally { uploading = false; }
   }
 
   async function openPlan(planId) {
     if (preventPointDraftLoss()) return;
     activePlanId = planId; selectedPointId = ""; draftPoint = null; placementMode = false;
-    const selectionChanged = state.activeLayoutPlanId !== planId;
-    state.activeLayoutPlanId = planId;
+    const selectionChanged = hasCapability("trial:configure") && state.activeLayoutPlanId !== planId;
+    if (selectionChanged) state.activeLayoutPlanId = planId;
     renderPlanList(); renderPointForm(); updateHistoryButtons();
     const plan = activePlan();
     if (!plan) return;
@@ -186,7 +195,7 @@
   async function deleteActivePlan() {
     const plan = activePlan();
     if (preventPointDraftLoss()) return;
-    if (!plan || !canEdit() || !confirm(`Delete layout plan "${plan.drawingTitle}" and all of its monitoring points?`)) return;
+    if (!plan || !hasCapability('trial:configure') || !confirm(`Delete layout plan "${plan.drawingTitle}" and all of its monitoring points?`)) return;
     setSaveStatus("Deleting…", "saving");
     try {
       clearTimeout(saveTimer);
@@ -197,6 +206,7 @@
         Object.assign(state, previous);
         throw new Error("The layout register could not be saved. The original image has not been deleted.");
       }
+      if (ui.planUploadMessage.textContent === uploadSuccessMessage) ui.planUploadMessage.textContent = "";
       if (plan.fileUrl && plan.fileUrl.startsWith("/uploads/")) {
         try {
           const storedName = encodeURIComponent(plan.fileUrl.split("/").pop());
@@ -264,7 +274,7 @@
     backgroundLayer.add(drawingNode); stage.add(backgroundLayer); stage.add(pointLayer);
     stage.on("wheel", handleWheel); stage.on("click tap", handleStageClick);
     fitToScreen(); renderPoints();
-    ui.addPlanPoint.disabled = !canEdit();
+    ui.addPlanPoint.disabled = !hasCapability('trial:configure');
   }
 
   function fitToScreen() {
@@ -291,7 +301,7 @@
   function symbolFor(point, selected, draft) {
     if (!stage || !Number.isFinite(stage.scaleX()) || stage.scaleX() <= 0) return null;
     const type = pointTypes[point.pointType]; const plan = activePlan(); const position = core.drawingFromRelative(point, { width: plan.originalWidth, height: plan.originalHeight }); const scale = stage.scaleX();
-    const group = new Konva.Group({ x: position.x, y: position.y, draggable: !draft && canEdit(), name: "monitoring-point", id: point.id });
+    const group = new Konva.Group({ x: position.x, y: position.y, draggable: !draft && hasCapability('trial:configure'), name: "monitoring-point", id: point.id });
     const size = 13 / scale; const fontSize = 18 / scale;
     const halo = new Konva.Circle({ radius: (selected ? 18 : 15) / scale, fill: selected ? "rgba(255,174,64,.35)" : "rgba(255,255,255,.82)", stroke: selected ? "#dc6b20" : "#ffffff", strokeWidth: 2 / scale });
     const symbol = new Konva.Text({ text: type.symbol, x: -fontSize / 2, y: -fontSize / 2, width: fontSize, height: fontSize, align: "center", verticalAlign: "middle", fontSize, fontStyle: "bold", fill: type.color, listening: false });
@@ -323,7 +333,7 @@
   }
 
   function beginPlacement() {
-    if (!canEdit() || !activePlan()) return;
+    if (!hasCapability('trial:configure') || !activePlan()) return;
     if (!stage || !backgroundSource) { ui.planPointMessage.textContent = "The drawing is not ready. Reopen a valid layout image before adding a point."; return; }
     if (preventPointDraftLoss()) return;
     if (!ui.placementPointType.value) { alert("Select a monitoring-point type before placement."); ui.placementPointType.focus(); return; }
@@ -351,8 +361,8 @@
     ui.pointFormHeading.textContent = draftPoint ? "New monitoring point" : `Point ${point.pointId}`;
     ui.planPointId.value = point.pointId || ""; ui.planPointType.value = point.pointType; ui.planPointDescription.value = point.description || ""; ui.planPointStatus.value = point.installationStatus || "proposed"; ui.planPointDate.value = point.installedDate || ""; ui.planPointAlert.value = point.alertLevel ?? ""; ui.planPointAlarm.value = point.alarmLevel ?? ""; ui.planPointUnit.value = point.unit || ""; ui.planPointRemarks.value = point.remarks || ""; ui.planPointMessage.textContent = "";
     ui.duplicatePlanPoint.disabled = Boolean(draftPoint); ui.deletePlanPoint.textContent = draftPoint ? "Cancel point" : "Delete point";
-    ui.planPointForm.querySelectorAll("input, select, textarea").forEach(control => { control.disabled = !canEdit(); });
-    ui.planPointForm.querySelectorAll("button[type='submit'], #duplicatePlanPoint, #deletePlanPoint").forEach(control => { control.disabled = !canEdit(); });
+    ui.planPointForm.querySelectorAll("input, select, textarea").forEach(control => { control.disabled = !hasCapability('trial:configure'); });
+    ui.planPointForm.querySelectorAll("button[type='submit'], #duplicatePlanPoint, #deletePlanPoint").forEach(control => { control.disabled = !hasCapability('trial:configure'); });
     clearPointDraft();
   }
 
@@ -360,7 +370,7 @@
     return { ...point, pointId: ui.planPointId.value.trim(), pointType: ui.planPointType.value, description: ui.planPointDescription.value.trim(), installationStatus: ui.planPointStatus.value, installedDate: ui.planPointDate.value || undefined, alertLevel: ui.planPointAlert.value === "" ? undefined : Number(ui.planPointAlert.value), alarmLevel: ui.planPointAlarm.value === "" ? undefined : Number(ui.planPointAlarm.value), unit: ui.planPointUnit.value.trim(), remarks: ui.planPointRemarks.value.trim(), updatedAt: now(), updatedBy: currentUser.username };
   }
   function savePoint(event) {
-    event.preventDefault(); if (!canEdit()) return; const point = currentPoint(); if (!point) return; const next = valuesFromForm(point);
+    event.preventDefault(); if (!hasCapability('trial:configure')) return; const point = currentPoint(); if (!point) return; const next = valuesFromForm(point);
     if (!next.pointId) { ui.planPointMessage.textContent = "Point ID is required."; return; }
     if (core.hasDuplicatePointId(planPoints(), next.pointId, draftPoint ? "" : point.id)) { ui.planPointMessage.textContent = "Point ID must be unique within this layout plan."; return; }
     remember();
@@ -371,13 +381,13 @@
 
   function duplicatePoint() {
     if (preventPointDraftLoss()) return;
-    if (!canEdit()) return; const source = currentPoint(); if (!source || draftPoint) return; const type = pointTypes[source.pointType]; const timestamp = now(); remember();
+    if (!hasCapability('trial:configure')) return; const source = currentPoint(); if (!source || draftPoint) return; const type = pointTypes[source.pointType]; const timestamp = now(); remember();
     const relative = { relativeX: core.clampRelative(source.relativeX + .025), relativeY: core.clampRelative(source.relativeY + .025) };
     const copy = { ...core.clone(source), ...relative, id: makeId(), pointId: core.nextPointId(planPoints(), type.prefix), createdAt: timestamp, createdBy: currentUser.username, updatedAt: timestamp, updatedBy: currentUser.username };
     state.layoutPoints.push(copy); selectedPointId = copy.id; renderPointForm(); renderPoints(); autoSave();
   }
   function deletePoint() {
-    if (!canEdit()) return;
+    if (!hasCapability('trial:configure')) return;
     if (draftPoint) { cancelPlacement(); return; }
     const point = currentPoint(); if (!point || !confirm(`Delete monitoring point ${point.pointId}?`)) return; remember();
     clearPointDraft();

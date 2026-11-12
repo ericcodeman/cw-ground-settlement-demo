@@ -26202,6 +26202,8 @@ function synchronizeFollowups(state, candidateRefs, options = {}) {
     const reached = reachedLevel(state, point, record);
     if (!reached) continue;
     const snapshot = observationSnapshot(state, point, record, reached, at);
+    const groundSource = options.resolveGroundSource?.(reference, snapshot);
+    if (groundSource) snapshot.groundSource = groundSource;
     let event = events.find(item => item.pointId === point.id && (item.observations || []).some(observation =>
       observation.sourceKey === sourceKey || observation.recordDate === record.date));
 
@@ -26342,7 +26344,7 @@ function recordEvidence(state, eventId, file, input, actor, now, role = "project
 
 module.exports = { FOLLOWUP_STATUSES, hongKongDay, nextReference, migrateFollowups, ruleVersion, synchronizeFollowups, updateFollowup, recordEvidence, activity };
 
-},{"./monitoring-core":133,"./reminder-email":136,"crypto":124}],128:[function(require,module,exports){
+},{"./monitoring-core":138,"./reminder-email":141,"crypto":124}],128:[function(require,module,exports){
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -26489,6 +26491,7 @@ module.exports = { FOLLOWUP_STATUSES, hongKongDay, nextReference, migrateFollowu
       "Action 2": { color: "#943300", dash: [7, 3, 2, 3] },
       "Action 3": { color: "#b42318", dash: [10, 3, 2, 3] },
       Okay: { color: "#1f8a5b", dash: [] },
+      "Below configured thresholds": { color: "#1f8a5b", dash: [] },
       "Below Alert": { color: "#1f8a5b", dash: [] }
     };
     return styles[label] || { color: "#1769aa", dash: [] };
@@ -26510,6 +26513,7 @@ module.exports = { FOLLOWUP_STATUSES, hongKongDay, nextReference, migrateFollowu
       ["Project", p.projectName], ["Group", groupName(m.markerGroup)],
       ["Records through", m.markerDate === "latest" ? "Latest available per marker" : m.markerDate],
       ["Observation range", dates.length ? dates[0] + " to " + dates.at(-1) : "No observations"],
+      ...(m.observationAge ? [["Maximum observation age", m.observationAge.maximumDays + " days from " + (m.observationAge.referenceDate || "no eligible date") + " (" + m.observationAge.reference + ")"]] : []),
       ["Coverage", p.markers.length + " used / " + p.exclusions.length + " excluded / " + (p.markers.length + p.exclusions.length) + " total"],
       ["Observed value range", signed(m.valueRange[0]) + " to " + signed(m.valueRange[1]) + " mm"],
       ["Contours", snapshot.features.length + " rendered / " + m.levels.length + " requested levels; interval " + p.interval + " mm"],
@@ -26867,7 +26871,7 @@ function renderDailyReviewHtml(report) {
 
 module.exports = { buildDailyReview, renderDailyReviewHtml };
 
-},{"./alert-followup":127,"./monitoring-core":133,"./reminder-email":136}],131:[function(require,module,exports){
+},{"./alert-followup":127,"./monitoring-core":138,"./reminder-email":141}],131:[function(require,module,exports){
 "use strict";
 
 const { isoDate } = require("./monitoring-core");
@@ -27011,7 +27015,7 @@ function structureEvidence(row, sourceRevision, disclose = false) {
 
 module.exports = { dateOnlyInput, sourceEpochs, approvalInput, recordEpochsCompatible, checkRecordEpochs, statusDimensions, utilityEvidence, structureEvidence };
 
-},{"./monitoring-core":133}],132:[function(require,module,exports){
+},{"./monitoring-core":138}],132:[function(require,module,exports){
 (function (Buffer){(function (){
 require('crypto').randomUUID=()=>window.crypto.randomUUID();
 require('util').isDeepStrictEqual=(a,b)=>{try{require('assert').deepStrictEqual(a,b);return true;}catch(error){if(error.name!=='AssertionError')throw error;return false;}};
@@ -27021,26 +27025,100 @@ const followup=require('./alert-followup');
 const validateEvidence=require('./trial-evidence-validation');
 const dailyReview=require('./daily-review');
 const baseline=require('./trial-fixture.json');
+const trialPackage=require('./trial-package');
+const fullBackup=require('./trial-backup');
+const {createBackupSession}=require('./trial-backup-session');
+const analysisScope=require('./trial-analysis-scope');
+const groundHistory=require('./ground-history');
+const groundCriteria=require('./ground-criteria-approval');
+const groundReviews=require('./ground-observation-review');
+const groundEventSource=require('./ground-event-source');
+const groundWorkbench=require('./ground-workbench');
+const notifications=require('./trial-notification-tracking');
+const trialPermissions=require('./trial-permissions');
 let state=structuredClone(baseline),version=1,projectId='trial',role='admin';const reports=new Map(),projects=new Map([['trial',state]]);
+const reportFonts=new Map();
+async function reportFont(snapshot) {
+ const name=snapshot.locale==='zh-HK'||!report.isEnglishOutputText(JSON.stringify(snapshot))?'report-hk.ttf':'font.ttf';
+ if(!reportFonts.has(name)) {
+  const loading=fetch('./'+name).then(async result=>{
+   if(!result.ok)throw Error('Report font could not be loaded. Retry the PDF download.');
+   const bytes=await result.arrayBuffer();
+   if(!bytes.byteLength)throw Error('Report font is empty. Retry the PDF download.');
+   return bytes;
+  }).catch(error=>{reportFonts.delete(name);throw error;});
+  reportFonts.set(name,loading);
+ }
+ return reportFonts.get(name);
+}
+let roleVersion=0,reportVersion=0;
+const pendingReportPdfs=new Map(),restoredReportItems=new WeakSet();
+function downloadFile(content,name,type) {
+ const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),anchor=document.createElement('a');
+ try { anchor.href=url;anchor.download=name;anchor.click(); }
+ finally { setTimeout(()=>URL.revokeObjectURL(url),1000); }
+}
+window.TrialBackup=createBackupSession({
+ core, read:()=>({projectId,projects:[...projects],reports:[...reports]}),
+ getGuard:()=>JSON.stringify([revision(),roleVersion,reportVersion,role]),
+ requireAdmin:()=>trialPermissions.requireCapability(role,'trial:configure'),
+ download:downloadFile, makeToken:()=>crypto.randomUUID(),
+ replace(incoming){
+  const nextProjects=new Map(incoming.projects),nextReports=new Map(incoming.reports);
+  projects.clear();for(const [id,project]of nextProjects)projects.set(id,project);
+  reports.clear();for(const [id,entry]of nextReports){reports.set(id,entry);restoredReportItems.add(entry);}
+  projectId=incoming.projectId;state=projects.get(projectId);version++;reportVersion++;
+ }
+});
+TrialBackup.archive=()=>{
+ trialPermissions.requireCapability(role,'report:export');
+ return [...reports].filter(([,entry])=>entry.projectId===projectId).reverse().map(([id,{snapshot,pdf}])=>({
+  id,title:snapshot.layout.title,language:snapshot.outputLanguage,generatedAt:snapshot.generatedAt,
+  hash:snapshot.snapshotHash,sourceRevision:snapshot.sourceRevision,hasPdf:pdf!==null
+ }));
+};
+TrialBackup.downloadOriginal=id=>{
+ trialPermissions.requireCapability(role,'report:export');
+ const entry=reports.get(id);
+ if(!entry||entry.projectId!==projectId||!entry.pdf)throw Error('Original PDF unavailable for this report in the selected project.');
+ downloadFile(fullBackup.pdfBytes(entry.pdf),'monitoring-report-'+id+'.pdf','application/pdf');
+};
 const revision=()=>`"browser-${projectId}-${version}"`;
-const commit=next=>{core.validateState(next);state=next;projects.set(projectId,state);version++;window.dispatchEvent(new Event('trial-data-changed'));};
+const commit=next=>{core.validateState(next);groundEventSource.validate(next);notifications.validate(next);state=next;projects.set(projectId,state);version++;window.dispatchEvent(new Event('trial-data-changed'));};
 const summary=input=>{const {scope,...s}=UC.applicability(state,input);return {...s,confirmationKey:s.status==='NOT_CONFIGURED'?require('crypto').createHash('sha256').update(JSON.stringify([projectId,'browser-demo',revision(),scope,s.context.date])).digest('hex'):null};};
+const stateForEditor=({groundHistory:history,groundCriteriaApprovals:approvals,groundObservationReviews:reviews,groundSchedules:schedules,trialNotifications:notificationLog,trialNotificationHours:notificationHours,...editable})=>editable;
 const response=(body,status=200,extra={})=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json',ETag:revision(),...extra}});
-window.BrowserTrial={getState:()=>structuredClone(state),revision,reset:()=>location.reload(),failNextSave:false};
+window.BrowserTrial={getState:()=>structuredClone(state),revision,reset:()=>{trialPermissions.requireCapability(role,'trial:configure');location.reload();},failNextSave:false};
+BrowserTrial.validateProjectMetadata=trialPermissions.projectMetadata;
 BrowserTrial.role=()=>role;
-BrowserTrial.setRole=value=>{if(!require('./access-control').ROLES.includes(value))throw Error('Unknown simulated role');role=value;};
-BrowserTrial.exportData=()=>{const blob=new Blob([JSON.stringify({schema:'cw-browser-trial-1',projectId,projects:[...projects]},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='cw-browser-trial-data.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
-BrowserTrial.importData=async file=>{if(!file||file.size>16*1024*1024)throw Error('Choose a trial JSON package below 16 MB');const data=JSON.parse(await file.text());if(data.schema!=='cw-browser-trial-1'||!Array.isArray(data.projects)||!data.projects.length||data.projects.length>20)throw Error('Unsupported trial package');const next=new Map();for(const row of data.projects){if(!Array.isArray(row)||row.length!==2||typeof row[0]!=='string'||!row[0]||row[0].length>160||next.has(row[0]))throw Error('Invalid project entry');core.validateState(row[1]);
-// A browser package must be self-contained; server uploads are not portable.
-for(const plan of row[1].layoutPlans||[]){if(!plan.fileUrl.startsWith('data:image/'))throw Error('Trial packages require embedded PNG/JPEG layout images; server file references are not portable');core.imageDimensionsFromDataUrl(plan.fileUrl);}
-next.set(row[0],structuredClone(row[1]));}if(!next.has(data.projectId))throw Error('Selected project missing');projects.clear();for(const [id,p]of next)projects.set(id,p);projectId=data.projectId;state=projects.get(projectId);version++;};
+BrowserTrial.hongKongDay=()=>groundWorkbench.hongKongDay(new Date());
+BrowserTrial.analysisContext=()=>({
+ points:structuredClone(state.points),
+ thresholds:structuredClone(state.thresholdSettings||{}),
+ groundVersions:(state.groundCriteriaApprovals||[]).map(item=>item.id),
+ structureVersions:[...new Set((state.structureUu?.targetPairObservations||[]).map(item=>item.criteriaAssessment?.criterion?.version).filter(Number.isSafeInteger))],
+ utilityVersions:[...new Set((state.structureUu?.utilityReviews||[]).map(item=>item.settlementAssessment?.version).filter(Number.isSafeInteger))]
+});
+BrowserTrial.analysisObservations=scope=>structuredClone(analysisScope.observations(state,scope));
+BrowserTrial.analysisReviewStates=()=>groundReviews.statusByObservation(state);
+BrowserTrial.groundWorkbench=()=>groundWorkbench.summarize(state);
+BrowserTrial.notificationSummary=()=>notifications.summary(state);
+BrowserTrial.groundReviewPending=()=>trialPermissions.capabilities(role).includes('project:edit')?groundReviews.pendingCount(state):null;
+BrowserTrial.setRole=value=>{if(!require('./access-control').ROLES.includes(value))throw Error('Unknown simulated role');role=value;roleVersion++;window.dispatchEvent(new Event('trial-role-changed'));};
+BrowserTrial.exportData=()=>{trialPermissions.requireCapability(role,'report:export');const encoded=trialPackage.encode({schema:'cw-browser-trial-1',projectId,projects:[...projects]},core);const blob=new Blob([encoded.text],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');try{a.href=url;a.download='cw-browser-trial-data.json';a.click();}finally{setTimeout(()=>URL.revokeObjectURL(url),1000);}return encoded.bytes;};
+BrowserTrial.importData=async(file,{beforeApply=()=>{}}={})=>{
+ trialPermissions.requireCapability(role,'trial:configure');
+ const {token}=await TrialBackup.preview(file,false);
+ TrialBackup.apply(token,beforeApply);
+};
 window.trialRequest=async(url,options={})=>{
  const u=new URL(url,location.href),route=u.pathname,method=options.method||'GET',headers=new Headers(options.headers);
  const body=options.body?JSON.parse(options.body):{};
  try{
  if(!route.startsWith('/api/')){if(method==='GET'&&(u.origin===location.origin&&u.pathname.startsWith('/cw-ground-settlement-demo/')||u.origin==='https://tile.openstreetmap.org'))return fetch(url,options);throw Error('Resource URL is not allowed in Browser Trial');}
- if(route==='/api/me')return response({username:'browser-demo',displayName:'Local role simulation',role,capabilities:require('./access-control').capabilitiesFor(role).filter(c=>c!=='user:manage')});
- if(route==='/api/logout'){role='client';return response({simulation:true});}
+ trialPermissions.assertRequest(role,route,method,body);
+ if(route==='/api/me')return response({username:'browser-demo',displayName:'Local role simulation',role,capabilities:trialPermissions.capabilities(role)});
+ if(route==='/api/logout'){role='client';roleVersion++;return response({simulation:true});}
  if(route==='/api/projects'&&method==='GET')return response({projects:[...projects].map(([id,s])=>({id,name:s.projectName,code:s.browserProjectMeta?.code||'',description:s.browserProjectMeta?.description||''})),activeProjectId:projectId});
  if(route==='/api/projects'&&method==='POST'){
  const name=typeof body.name==='string'?body.name.trim():'',code=typeof body.code==='string'?body.code.trim():'',description=typeof body.description==='string'?body.description.trim():'';
@@ -27068,7 +27146,7 @@ window.trialRequest=async(url,options={})=>{
  if(evidenceRoute){
  const next=structuredClone(state),workflow=evidenceRoute[1]==='structure-followups'?SF.followupState(next):evidenceRoute[1]==='utility-followups'?UV.followupState(next):next;
  if(method==='GET'&&evidenceRoute[3]){const file=workflow.followupEvents?.find(e=>e.id===evidenceRoute[2])?.evidenceFiles?.find(f=>f.id===evidenceRoute[3]);if(!file?.localDataUrl)return response({error:'Local evidence unavailable'},404);const match=file.localDataUrl.match(/^data:([^;]+);base64,(.+)$/);return new Response(Buffer.from(match[2],'base64'),{headers:{'Content-Type':match[1]}});}
- if(method==='POST'&&!evidenceRoute[3]){const checked=validateEvidence(body),at=new Date().toISOString();const file={id:crypto.randomUUID(),originalFileName:checked.name,mimeType:checked.mime,size:checked.buffer.length,uploadedAt:at,uploadedBy:'Local workflow simulation',localDataUrl:body.dataUrl};
+ if(method==='POST'&&!evidenceRoute[3]){const checked=validateEvidence(body),at=new Date().toISOString();const id=crypto.randomUUID();const file={id,storedName:id+checked.extension,originalFileName:checked.name,mimeType:checked.mime,size:checked.buffer.length,uploadedAt:at,uploadedBy:'Local workflow simulation',localDataUrl:body.dataUrl};
  if(evidenceRoute[1]!=='followups'&&workflow.followupEvents.some(e=>e.id===evidenceRoute[2]&&e.status==='in_progress'))followup.updateFollowup(workflow,evidenceRoute[2],body,'Local workflow simulation',at,role);
  const event=followup.recordEvidence(workflow,evidenceRoute[2],file,body,'Local workflow simulation',at,role);core.validateState(next);commit(next);return response({event,followupEvents:state.followupEvents||[]},201);}
  }
@@ -27083,34 +27161,869 @@ window.trialRequest=async(url,options={})=>{
  if(route.endsWith('/export'))return new Response(dailyReview.renderDailyReviewHtml(pack).replaceAll('server-held project state','local browser trial state — workflow simulation only'),{headers:{'Content-Type':'text/html'}});
  return response(pack);
  }
- if(route==='/api/state'&&method==='GET')return response(state);
+ if(route==='/api/trial-notification-policy'||route==='/api/trial-notifications'){
+  if(headers.get('X-Project-Id')!==projectId||headers.get('If-Match')!==revision())return response({error:'Local project or revision changed. Refresh notification tracking.'},409);
+  if(route==='/api/trial-notification-policy'){
+   trialPermissions.requireCapability(role,'trial:configure');
+   if(method==='POST'){commit(notifications.configure(state,body.hours));return response({hours:state.trialNotificationHours},201);}
+   if(method==='GET')return response({hours:state.trialNotificationHours??null});
+  }
+  if(route==='/api/trial-notifications'){
+   if(method==='POST'){commit(notifications.record(state,body,role,new Date().toISOString()));return response({id:body.id},201);}
+   if(method==='GET'){
+    const privileged=trialPermissions.capabilities(role).includes('reminder:manage');
+    const notices=notifications.list(state,{privileged,eventId:u.searchParams.get('eventId'),overdueOnly:u.searchParams.get('overdue')==='1'});
+    const legacy=(state.reminderLog??[]).filter(row=>!u.searchParams.get('eventId')||row.eventId===u.searchParams.get('eventId'))
+      .map(row=>({pointId:row.pointId??'',date:row.monitoringDate??row.date??'',createdAt:row.createdAt??''}));
+    return response({notices,legacy,summary:notifications.summary(state)});
+   }
+  }
+ }
+ if(route==='/api/ground-schedules'){
+  trialPermissions.requireCapability(role,'trial:configure');
+  if(headers.get('X-Project-Id')!==projectId||headers.get('If-Match')!==revision())return response({error:'Local project or revision changed. Review the schedule before saving.'},409);
+  if(method==='POST'){
+   const next=groundWorkbench.saveSchedule(state,body);
+   commit(next);
+   return response({schedule:next.groundSchedules.find(row=>row.pointId===body.pointId)??null},201);
+  }
+  if(method==='GET')return response({schedules:state.groundSchedules??[]});
+ }
+ if(route==='/api/ground-criteria-approvals'){
+  trialPermissions.requireCapability(role,'trial:configure');
+  if(method==='GET')return response({approvals:state.groundCriteriaApprovals??[]});
+  if(method==='POST'){
+   if(headers.get('If-Match')!==revision())return response({error:'Local revision changed; review the approval again.'},409);
+   const approvals=groundCriteria.register(state.groundCriteriaApprovals??[],body,new Date().toISOString());
+   commit({...state,groundCriteriaApprovals:approvals});
+   return response({approval:approvals.at(-1)},201);
+  }
+ }
+ if(route==='/api/ground-observation-preview'&&method==='POST'){
+  if(headers.get('X-Project-Id')!==projectId||headers.get('If-Match')!==revision())return response({error:'Local project or revision changed. Analyze the observations again.'},409);
+  if(!Array.isArray(body.incoming))return response({error:'Supply the observations to analyze.'},422);
+  const analysis=quality.analyze(state,body.incoming,{rules:state.qualityRules||{},asOf:state.qualityAsOf||undefined});
+  return response(groundHistory.preview(state,analysis,new Date().toISOString()));
+ }
+ if(route==='/api/ground-observation-reviews'){
+  if(headers.get('X-Project-Id')!==projectId||headers.get('If-Match')!==revision())return response({error:'Local project or revision changed. Refresh the observation review.'},409);
+  if(method==='POST'){
+   const next=groundReviews.record(state,body,role,new Date().toISOString());
+   commit(next);
+   return response({decision:next.groundObservationReviews.at(-1)},201);
+  }
+  if(method==='GET'){
+   if(!u.searchParams.has('pointId'))return response(groundReviews.queue(state));
+   const history=groundHistory.describe(state,u.searchParams.get('pointId'),u.searchParams.get('date'));
+   if(!history?.revisions.length)return response({error:'No saved observation revision for this selection.'},404);
+   const ids=new Set(history.revisions.map(row=>row.id));
+   return response({history,decisions:(state.groundObservationReviews??[]).filter(row=>ids.has(row.revisionId))});
+  }
+ }
+ if(route==='/api/ground-history'&&method==='GET'){
+  trialPermissions.requireCapability(role,'project:read');
+  const pointId=u.searchParams.get('pointId'),date=u.searchParams.get('date');
+  if(!pointId||!core.isoDate(date))return response({error:'Supply a marker ID and a valid observation date.'},422);
+  const result=groundHistory.describe(state,pointId,date);
+  return result?response({...result,observationReview:groundReviews.LABELS[result.revisions.length?(groundReviews.statusIndex(state).get(result.revisions[0].id)?.status??'unreviewed'):'legacy']}):response({error:'Ground observation not found in the selected project.'},404);
+ }
+ if(route==='/api/state'&&method==='GET')return response(stateForEditor(state));
  if(route==='/api/state'&&method==='PUT'){
  if(headers.get('If-Match')!==revision())return response({error:'Local revision changed; review again.'},409);
+ const editable=stateForEditor(state);
+ trialPermissions.assertStateWrite(role,role==='admin'?editable:normalizeState(structuredClone(editable)),body);
  if(BrowserTrial.failNextSave){BrowserTrial.failNextSave=false;throw Error('Injected local update failure; draft retained');}
- core.validateState(body);const q=quality.prepare(state,body,body._qualityConfirmation,'browser-demo',new Date().toISOString());
- const next={...structuredClone(body),records:q.records,qualityAudit:q.audit,qualityFindings:q.findings};
+ core.validateState(body);
+ const at=new Date().toISOString();
+ if(Object.hasOwn(body,'_groundPreview')){
+  const preview=body._groundPreview;
+  if(preview?.revision!==revision()||preview?.day!==groundCriteria.hongKongDay(at))return response({error:'Local revision or Hong Kong date changed. Analyze the observations again.'},409);
+ }
+ const q=quality.prepare(state,body,body._qualityConfirmation,'browser-demo',at);
+ const next={...structuredClone(role==='admin'?body:editable),records:q.records,qualityAudit:q.audit,qualityFindings:q.findings};
+ if(Object.hasOwn(state,'groundCriteriaApprovals'))next.groundCriteriaApprovals=state.groundCriteriaApprovals;
+ if(Object.hasOwn(state,'groundObservationReviews'))next.groundObservationReviews=state.groundObservationReviews;
+ const rename=quality.markerRename(state,body);
+ if(Object.hasOwn(state,'groundSchedules'))next.groundSchedules=groundWorkbench.retainSchedules(state,next.points,rename);
+ if(Object.hasOwn(state,'trialNotificationHours'))next.trialNotificationHours=state.trialNotificationHours;
+ if(Object.hasOwn(state,'trialNotifications'))next.trialNotifications=state.trialNotifications;
+ next.groundHistory=groundHistory.capture(state,next,{at,rename});
  for(const k of Object.keys(next))if(k.startsWith('_'))delete next[k];
- followup.synchronizeFollowups(next,body._reminderCandidates||[],{actor:'browser workflow demonstration',now:new Date().toISOString()});
- commit(next);return response(state);
+ followup.synchronizeFollowups(next,body._reminderCandidates||[],{
+  actor:'browser workflow demonstration',now:at,resolveGroundSource:groundEventSource.linker(next)
+ });
+ commit(notifications.capture(next,body._reminderCandidates||[],at));return response(stateForEditor(state));
  }
  if(route==='/api/settlement-contours'){
  const captured=revision(),source=structuredClone(state);await Promise.resolve();if(options.signal?.aborted)throw Error('Calculation cancelled');
- const result=contour.buildSettlementContours(source,Object.fromEntries(u.searchParams));result.presentation.sourceRevision=captured;
+ const contourOptions=Object.fromEntries(u.searchParams),filter=contourOptions.scope?analysisScope.normalize(JSON.parse(contourOptions.scope)):null;
+ if(filter){
+  if(filter.through&&(!contourOptions.date||filter.through<contourOptions.date))contourOptions.date=filter.through;
+  const selected=analysisScope.observations(source,filter);
+  source.points=selected.points;source.records=selected.records;
+ }
+ const result=contour.buildSettlementContours(source,{...contourOptions,scopeEvidence:true});result.presentation.sourceRevision=captured;
  if(captured!==revision()||options.signal?.aborted)return response({error:'Calculation source changed'},409);return response(result);
  }
  if(route==='/api/monitoring-reports'&&method==='POST'){
  if(headers.get('If-Match')!==revision())return response({error:'Local revision changed'},409);
- const snapshot=report.buildMonitoringReport(structuredClone(state),body,{sourceRevision:revision().replaceAll('"',''),generatedBy:'Browser demonstration'});
- const id=crypto.randomUUID(),saved={...snapshot,snapshotId:id,pdfUrl:'/api/monitoring-reports/'+id+'.pdf'};reports.set(id,{projectId,snapshot:structuredClone(saved)});return response(saved,201);
+ const snapshot=report.buildMonitoringReport(structuredClone(state),body,{sourceRevision:revision().replaceAll('"',''),generatedBy:'Browser demonstration',groundObservationReview:groundReviews.statusByObservation(state),includeGroundHistory:true,allowReportLanguages:true});
+ const id=crypto.randomUUID(),saved={...snapshot,snapshotId:id,pdfUrl:'/api/monitoring-reports/'+id+'.pdf'};reports.set(id,{projectId,snapshot:structuredClone(saved),pdf:null});reportVersion++;window.dispatchEvent(new Event('trial-report-archived'));return response(saved,201);
  }
  const match=route.match(/^\/api\/monitoring-reports\/([^/]+)\.pdf$/);
- if(match){const item=reports.get(match[1]);if(!item||item.projectId!==projectId)return response({error:'Snapshot unavailable in this local project'},404);const s=item.snapshot;if(!window.proofFont)window.proofFont=await(await fetch('./font.ttf')).arrayBuffer();const bytes=await window.renderOriginalPdf(structuredClone(s),{fontPath:window.proofFont});return new Response(bytes,{headers:{'Content-Type':'application/pdf','X-Report-Snapshot':s.snapshotHash}});}
+ if(match&&method==='GET'){
+  trialPermissions.requireCapability(role,'report:export');
+  const id=match[1],item=reports.get(id);
+  if(!item||item.projectId!==projectId)return response({error:'Snapshot unavailable in this local project'},404);
+  const s=item.snapshot;
+  if(!item.pdf){
+   if(restoredReportItems.has(item))return response({error:'This restored snapshot has no original PDF. Generate a new report preview to create a new PDF.'},409);
+   const requestedRoleVersion=roleVersion;
+   if(!pendingReportPdfs.has(item)){
+    const pending=(async()=>fullBackup.capturePdf(await window.renderOriginalPdf(structuredClone(s),{fontPath:await reportFont(s)})))();
+    pendingReportPdfs.set(item,pending);
+   }
+   let original;
+   try { original=await pendingReportPdfs.get(item); } finally { pendingReportPdfs.delete(item); }
+   if(item.projectId!==projectId||reports.get(id)!==item||requestedRoleVersion!==roleVersion)return response({error:'Snapshot unavailable in the current project or role'},409);
+   if(!item.pdf){item.pdf=original;reportVersion++;window.dispatchEvent(new Event('trial-report-archived'));}
+  }
+  return new Response(fullBackup.pdfBytes(item.pdf),{headers:{'Content-Type':'application/pdf','X-Report-Snapshot':s.snapshotHash}});
+ }
  return response({error:'Not yet integrated in Browser Trial. No data changed.'},501);
- }catch(error){return response({error:error.message,code:error.code},Number.isInteger(error.status)&&error.status>=400&&error.status<600?error.status:422);}
+ }catch(error){return response({error:error.message,code:error.code,...(error.contourSelection&&{contourSelection:error.contourSelection})},Number.isInteger(error.status)&&error.status>=400&&error.status<600?error.status:422);}
 };
 
 }).call(this)}).call(this,require("buffer").Buffer)
-},{"./access-control":126,"./alert-followup":127,"./daily-review":130,"./monitoring-core":133,"./monitoring-quality":134,"./monitoring-report":135,"./settlement-contours":137,"./structure-assessments":138,"./structure-criteria":139,"./structure-followup":140,"./structure-records":141,"./structure-uu-calculations":142,"./trial-evidence-validation":143,"./trial-fixture.json":144,"./utility-register":145,"./utility-review":146,"./utility-segment-map":147,"./utility-settlement-limits":148,"assert":1,"buffer":8,"crypto":124,"util":122}],133:[function(require,module,exports){
+},{"./access-control":126,"./alert-followup":127,"./daily-review":130,"./ground-criteria-approval":133,"./ground-event-source":134,"./ground-history":135,"./ground-observation-review":136,"./ground-workbench":137,"./monitoring-core":138,"./monitoring-quality":139,"./monitoring-report":140,"./settlement-contours":143,"./structure-assessments":144,"./structure-criteria":145,"./structure-followup":146,"./structure-records":147,"./structure-uu-calculations":148,"./trial-analysis-scope":149,"./trial-backup":151,"./trial-backup-session":150,"./trial-evidence-validation":152,"./trial-fixture.json":153,"./trial-notification-tracking":154,"./trial-package":155,"./trial-permissions":156,"./utility-register":157,"./utility-review":158,"./utility-segment-map":159,"./utility-settlement-limits":160,"assert":1,"buffer":8,"crypto":124,"util":122}],133:[function(require,module,exports){
+"use strict";
+
+const { finiteNumber, isoDate } = require("./monitoring-core");
+const { approachLevels } = require("./reminder-email");
+
+const RULES = ["ground", "utilities", "refuseGround"];
+const hkDate = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Hong_Kong", year: "numeric", month: "2-digit", day: "2-digit"
+});
+
+function hongKongDay(at) {
+  const parts = Object.fromEntries(hkDate.formatToParts(new Date(at)).map(({type, value}) => [type, value]));
+  return [parts.year, parts.month, parts.day].join("-");
+}
+
+function validTimestamp(value) {
+  return typeof value === "string" && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+
+function approvalFields(input, at) {
+  if (!input || !RULES.includes(input.rule) || !Object.hasOwn(approachLevels, input.approach)) {
+    throw new Error("Select a Ground rule group and a 3A or 5A approach.");
+  }
+  if (!validTimestamp(at) || !isoDate(input.approvalDate) || !isoDate(input.effectiveDate)
+      || input.approvalDate > input.effectiveDate || input.approvalDate > hongKongDay(at)) {
+    throw new Error("Use the documented approval and Hong Kong effective dates. Approval cannot be after registration or effectiveness.");
+  }
+  const documentRef = typeof input.documentRef === "string" ? input.documentRef.trim() : "";
+  if (!documentRef || documentRef.length > 300 || /[\u0000-\u001f\u007f]/.test(documentRef)) {
+    throw new Error("Supply the project approval document reference (up to 300 characters).");
+  }
+  const levels = approachLevels[input.approach];
+  const values = input.limits;
+  if (!values || typeof values !== "object" || Array.isArray(values) || Object.keys(values).length !== levels.length
+      || levels.some(({key}, i) => !finiteNumber(values[key]) || Number(values[key]) < 0
+        || (i > 0 && Number(values[key]) <= Number(values[levels[i - 1].key])))) {
+    throw new Error("Supply all active threshold limits in mm, in strictly increasing order.");
+  }
+  const limits = Object.fromEntries(levels.map(({key}) => [key, Number(values[key])]));
+  return { rule: input.rule, approach: input.approach, limits, documentRef,
+    approvalDate: input.approvalDate, effectiveDate: input.effectiveDate };
+}
+
+function register(existing, input, at) {
+  const fields = approvalFields(input, at);
+  if (existing.some(row => row.rule === fields.rule && row.effectiveDate === fields.effectiveDate)) {
+    throw Object.assign(new Error("An approval is already registered for this rule group and effective date."), {status: 409});
+  }
+  return [...existing, { id: existing.length + 1, ...fields, recordedAt: at }];
+}
+
+function validate(rows) {
+  if (!Array.isArray(rows)) throw new Error("Invalid Ground criteria approval register.");
+  const scopeDates = new Set();
+  for (const [index, row] of rows.entries()) {
+    const fields = approvalFields(row, row?.recordedAt);
+    const key = JSON.stringify([fields.rule, fields.effectiveDate]);
+    if (row.id !== index + 1 || scopeDates.has(key) || row.documentRef !== fields.documentRef
+        || Object.keys(fields.limits).some(level => row.limits[level] !== fields.limits[level])) {
+      throw new Error("Invalid or duplicate Ground criteria approval version.");
+    }
+    scopeDates.add(key);
+  }
+}
+
+function applicable(rows, rule, date, at, throughId = rows.length) {
+  if (!isoDate(date) || !validTimestamp(at) || date > hongKongDay(at)) return null;
+  const cutoff = Date.parse(at);
+  let match = null;
+  for (const row of rows) {
+    if (row.id > throughId || row.rule !== rule || row.effectiveDate > date || Date.parse(row.recordedAt) > cutoff) continue;
+    if (!match || row.effectiveDate > match.effectiveDate) match = row;
+  }
+  return match;
+}
+
+module.exports = { RULES, hongKongDay, register, validate, applicable };
+
+},{"./monitoring-core":138,"./reminder-email":141}],134:[function(require,module,exports){
+"use strict";
+
+const { ruleVersion } = require("./alert-followup");
+const { approachLevels } = require("./reminder-email");
+
+const recordKey = (pointId, date) => JSON.stringify([pointId, date]);
+
+function matches(history, revision, snapshot) {
+  const assessment = revision?.assessment;
+  const criteria = assessment && history.criteria[assessment.criteriaVersion - 1];
+  if (!criteria?.limits) return false;
+  const { pointId, date, reading } = revision.observation;
+  const thresholdKeys = Object.keys(criteria.limits);
+  const levels = approachLevels[criteria.approach];
+  const severityRank = levels.findIndex(level => level.key === assessment.severity);
+  const expectedRuleVersion = ruleVersion({ monitoringApproach: criteria.approach, thresholdSettings: { [criteria.rule]: criteria.limits } }, { rule: criteria.rule });
+  return snapshot.sourceKey === pointId + "|" + date && snapshot.recordDate === date
+    && snapshot.reading === reading && snapshot.accumulatedSettlement === assessment.settlementMm
+    && snapshot.severityKey === assessment.severity && snapshot.ruleKey === criteria.rule
+    && snapshot.monitoringApproach === criteria.approach && snapshot.observedAt === assessment.assessedAt
+    && snapshot.ruleVersion === expectedRuleVersion && severityRank >= 0
+    && snapshot.severityRank === severityRank && snapshot.severityLabel === levels[severityRank].label
+    && thresholdKeys.length === Object.keys(snapshot.thresholds ?? {}).length
+    && thresholdKeys.every(key => snapshot.thresholds[key] === criteria.limits[key]);
+}
+
+function linker(state) {
+  const history = state.groundHistory;
+  const ids = new Map((history?.active ?? []).map(link => [recordKey(link.pointId, link.date), link.revisionId]));
+  return (reference, snapshot) => {
+    const revisionId = ids.get(recordKey(reference.pointId, reference.date));
+    const revision = revisionId && history.revisions[revisionId - 1];
+    if (!matches(history, revision, snapshot)) return null;
+    return { revisionId, baselineVersion: revision.assessment.baselineVersion, criteriaVersion: revision.assessment.criteriaVersion };
+  };
+}
+
+function validate(state) {
+  const history = state.groundHistory;
+  for (const event of state.followupEvents ?? []) {
+    for (const snapshot of [event.trigger, event.latestObservation, ...event.observations]) {
+      if (!snapshot || !Object.hasOwn(snapshot, "groundSource")) continue;
+      const source = snapshot.groundSource;
+      const revision = Number.isSafeInteger(source?.revisionId) && history?.revisions[source.revisionId - 1];
+      if (!matches(history, revision, snapshot) || source.baselineVersion !== revision.assessment.baselineVersion
+          || source.criteriaVersion !== revision.assessment.criteriaVersion) {
+        throw new Error("Invalid Ground event source: the recorded observation and operational criteria revision must match the captured event values.");
+      }
+    }
+  }
+}
+
+module.exports = { linker, validate };
+
+},{"./alert-followup":127,"./reminder-email":141}],135:[function(require,module,exports){
+"use strict";
+
+const { finiteNumber, isoDate, settlement } = require("./monitoring-core");
+const { approachLevels, reachedLevel } = require("./reminder-email");
+const approvalRegistry = require("./ground-criteria-approval");
+
+const METHOD = "ground-settlement-0.1mm-v1";
+const ruleKeys = ["ground", "utilities", "refuseGround"];
+const recordKey = ({ pointId, date }) => JSON.stringify([pointId, date]);
+const observation = row => ({ pointId: row.pointId, date: row.date, reading: Number(row.reading), note: String(row.note ?? "") });
+
+const observationDay = approvalRegistry.hongKongDay;
+
+function configuredCriteria(state, rule) {
+  const approach = state.monitoringApproach === "5A" ? "5A" : "3A";
+  const source = state.thresholdSettings?.[rule];
+  const levels = approachLevels[approach];
+  const limits = levels.every(({key}) => finiteNumber(source?.[key]))
+    ? Object.fromEntries(levels.map(({key}) => [key, Number(source[key])])) : null;
+  return { rule, approach, limits, reviewRequired: state.thresholdsRequireReview === true };
+}
+
+function calculate(baseline, criteria, row) {
+  const settlementMm = settlement(baseline, row);
+  const severity = criteria.limits
+    ? reachedLevel({ monitoringApproach: criteria.approach, thresholdSettings: { [criteria.rule]: criteria.limits } },
+      { baseline: baseline.baseline, rule: criteria.rule }, row)?.key ?? "none"
+    : null;
+  return { settlementMm, severity };
+}
+
+function historicalBaseline(versions, row, at, throughId) {
+  const assessedDay = observationDay(at);
+  if (row.date > assessedDay) return null;
+  const cutoff = Date.parse(at);
+  let preceding = null, onDay = [];
+  for (const version of versions) {
+    if (version.id > throughId) break;
+    const recorded = Date.parse(version.recordedAt);
+    if (recorded > cutoff) continue;
+    const day = observationDay(version.recordedAt);
+    if (day === row.date) onDay.push(version);
+    else if (day < row.date && (!preceding || recorded >= Date.parse(preceding.recordedAt))) preceding = version;
+  }
+  if (!preceding && row.date !== assessedDay) return null;
+  const source = preceding ?? onDay[0];
+  if (!source?.rule || onDay.some(version => version.baseline !== source.baseline || version.rule !== source.rule)) return null;
+  return source;
+}
+
+function baselineIndex(versions) {
+  const groups = new Map();
+  for (const version of versions) {
+    if (!groups.has(version.pointId)) groups.set(version.pointId, []);
+    groups.get(version.pointId).push(version);
+  }
+  return groups;
+}
+
+function approvedDecision(baselines, approvals, row, at, baselineCount, approvalCount) {
+  if (!approvalCount) return null;
+  const baseline = historicalBaseline(baselines.get(row.pointId) ?? [], row, at, baselineCount);
+  if (!baseline) return null;
+  const approval = approvalRegistry.applicable(approvals, baseline.rule, row.date, at, approvalCount);
+  if (!approval) return null;
+  return { baselineVersion: baseline.id, approvalVersion: approval.id, assessedAt: at, ...calculate(baseline, approval, row) };
+}
+
+function basisFor(criteria, date, at) {
+  return criteria.limits && !criteria.reviewRequired && date === observationDay(at)
+    ? "captured-operational-assessment" : "current-rule-comparison";
+}
+
+function matchesMarker(from, to, renames = []) {
+  if (!Array.isArray(renames)) return false;
+  for (const change of renames) {
+    if (change?.from !== from || !validId(change.to) || change.to === from) return false;
+    from = change.to;
+  }
+  return from === to;
+}
+
+function sameLimits(left, right) {
+  if (!left || !right) return left === right;
+  return Object.keys(right).every(key => left[key] === right[key]);
+}
+
+function newHistory() {
+  return { schemaVersion: 1, baselines: [], criteria: [], revisions: [], active: [], archived: [], legacy: [] };
+}
+
+function latestBy(rows, key) {
+  return new Map(rows.map(row => [row[key], row]));
+}
+
+// Called only after the existing observation and permission checks have accepted the mutation.
+function capture(previous, next, { at, rename = null } = {}) {
+  const history = structuredClone(previous.groundHistory ?? newHistory());
+  const priorRows = new Map(previous.records.map(row => {
+    const remapped = rename && row.pointId === rename.from ? { ...row, pointId: rename.to } : row;
+    return [recordKey(remapped), row];
+  }));
+  const heads = new Map(history.active.map(link => {
+    const remapped = rename && link.pointId === rename.from
+      ? { ...link, pointId: rename.to, renames: [...(link.renames ?? []), rename] } : link;
+    return [recordKey(remapped), remapped];
+  }));
+  const baselineHeads = latestBy(history.baselines, "pointId");
+  const criteriaHeads = latestBy(history.criteria, "rule");
+  const points = new Map(next.points.map(point => [point.id, point]));
+  const usedCriteria = new Map();
+  for (const point of points.values()) {
+    const baseline = Number(point.baseline);
+    const priorBaseline = baselineHeads.get(point.id);
+    if (!priorBaseline || priorBaseline.baseline !== baseline || priorBaseline.rule !== point.rule
+        || Date.parse(priorBaseline.recordedAt) > Date.parse(at)) {
+      const version = { id: history.baselines.length + 1, pointId: point.id, baseline, rule: point.rule, recordedAt: at };
+      history.baselines.push(version);
+      baselineHeads.set(point.id, version);
+    }
+    if (usedCriteria.has(point.rule)) continue;
+    const settings = configuredCriteria(next, point.rule);
+    let version = criteriaHeads.get(point.rule);
+    if (!version || version.approach !== settings.approach || version.reviewRequired !== settings.reviewRequired
+        || !sameLimits(version.limits, settings.limits) || Date.parse(version.recordedAt) > Date.parse(at)) {
+      version = { id: history.criteria.length + 1, ...settings, recordedAt: at };
+      history.criteria.push(version);
+    }
+    usedCriteria.set(point.rule, version);
+  }
+
+  const approvals = next.groundCriteriaApprovals ?? [];
+  const datedBaselines = approvals.length ? baselineIndex(history.baselines) : null;
+  history.active = [];
+  history.legacy = [];
+  for (const raw of next.records) {
+    const row = observation(raw);
+    const key = recordKey(row);
+    const prior = priorRows.get(key);
+    let link = heads.get(key);
+    heads.delete(key);
+    const readingChanged = !prior || Number(prior.reading) !== row.reading;
+    if (readingChanged || String(prior.note ?? "") !== row.note) {
+      if (prior && !link) {
+        // Preserve the legacy source without manufacturing a decision, timestamp or version.
+        const revisionId = history.revisions.length + 1;
+        history.revisions.push({ id: revisionId, observation: observation(prior), supersedes: null, assessment: null });
+        link = { revisionId, ...(prior.pointId !== row.pointId ? { renames: [rename] } : {}) };
+      }
+      const revision = {
+        id: history.revisions.length + 1,
+        observation: row,
+        supersedes: link?.revisionId ?? null,
+        ...(link?.renames ? { renames: link.renames } : {}),
+        assessment: null
+      };
+      if (readingChanged) {
+        const point = points.get(row.pointId);
+        const baseline = baselineHeads.get(point.id);
+        const criteria = usedCriteria.get(point.rule);
+        revision.assessment = {
+          method: METHOD, rule: point.rule, baselineVersion: baseline.id, criteriaVersion: criteria.id,
+          assessedAt: at, basis: basisFor(criteria, row.date, at), ...calculate(baseline, criteria, row),
+          approvalScope: { baselineCount: history.baselines.length, approvalCount: approvals.length }
+        };
+        revision.approvedAssessment = approvedDecision(datedBaselines, approvals, row, at, history.baselines.length, approvals.length);
+      } else {
+        const predecessor = history.revisions[link.revisionId - 1];
+        revision.assessmentSourceRevision = predecessor.assessmentSourceRevision ?? predecessor.id;
+      }
+      history.revisions.push(revision);
+      link = { pointId: row.pointId, date: row.date, revisionId: revision.id };
+    }
+    if (link) history.active.push(link);
+    else history.legacy.push({ pointId: row.pointId, date: row.date });
+  }
+  for (const link of heads.values()) history.archived.push({ ...link, archivedAt: at });
+  return history;
+}
+
+function resolveRevision(state, history, revision) {
+  const source = revision.assessmentSourceRevision ? history.revisions[revision.assessmentSourceRevision - 1] : revision;
+  const snapshot = source.assessment;
+  const approved = source.approvedAssessment;
+  return {
+    ...revision,
+    assessment: snapshot,
+    historicalStatus: snapshot?.basis === "captured-operational-assessment" ? "captured" : "unknown",
+    baseline: snapshot ? history.baselines[snapshot.baselineVersion - 1] : null,
+    criteria: snapshot ? history.criteria[snapshot.criteriaVersion - 1] : null,
+    ...(approved ? { approvedAssessment: { ...approved, baseline: history.baselines[approved.baselineVersion - 1],
+      approval: state.groundCriteriaApprovals[approved.approvalVersion - 1] } } : {})
+  };
+}
+
+function describe(state, pointId, date) {
+  const row = state.records.find(record => record.pointId === pointId && record.date === date);
+  if (!row) return null;
+  const point = state.points.find(item => item.id === pointId);
+  const history = state.groundHistory ?? newHistory();
+  const active = history.active.find(link => link.pointId === pointId && link.date === date);
+  const revisions = [];
+  let id = active?.revisionId;
+  while (id) {
+    const revision = history.revisions[id - 1];
+    revisions.push(resolveRevision(state, history, revision));
+    id = revision.supersedes;
+  }
+  const criteria = configuredCriteria(state, point.rule);
+  return {
+    observation: observation(row),
+    historicalStatus: revisions[0]?.historicalStatus ?? "unknown",
+    approvedHistoricalStatus: revisions[0]?.approvedAssessment ? "captured" : "unknown",
+    revisions,
+    currentComparison: { basis: "current-rule-comparison", baseline: Number(point.baseline), criteria,
+      ...calculate(point, criteria, row) }
+  };
+}
+
+function requireHistory(condition, message) {
+  if (!condition) throw new Error("Invalid Ground history: " + message);
+}
+
+function timestamp(value) {
+  return typeof value === "string" && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+
+function validId(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function validateLimits(limits, approach) {
+  if (limits === null) return true;
+  if (!limits || typeof limits !== "object" || Array.isArray(limits)) return false;
+  const levels = approachLevels[approach];
+  return Object.keys(limits).length === levels.length && levels.every(({key}, index) => {
+    const value = limits[key];
+    return Number.isFinite(value) && value >= 0 && (!index || value > limits[levels[index - 1].key]);
+  });
+}
+
+// Legacy packages have no extension. Versioned packages must restore a complete, internally consistent history.
+function validate(state) {
+  const approvals = Object.hasOwn(state, "groundCriteriaApprovals") ? state.groundCriteriaApprovals : [];
+  approvalRegistry.validate(approvals);
+  if (!Object.hasOwn(state, "groundHistory")) return;
+  const history = state.groundHistory;
+  requireHistory(history?.schemaVersion === 1 && ["baselines", "criteria", "revisions", "active", "archived", "legacy"].every(key => Array.isArray(history[key])),
+    "unsupported or incomplete schema.");
+  for (const [index, version] of history.baselines.entries()) {
+    requireHistory(version?.id === index + 1 && validId(version.pointId) && Number.isFinite(version.baseline)
+      && (version.rule === undefined || ruleKeys.includes(version.rule)) && timestamp(version.recordedAt), "invalid baseline version.");
+  }
+  for (const [index, version] of history.criteria.entries()) {
+    requireHistory(version?.id === index + 1 && ruleKeys.includes(version.rule) && ["3A", "5A"].includes(version.approach)
+      && typeof version.reviewRequired === "boolean" && timestamp(version.recordedAt) && validateLimits(version.limits, version.approach),
+    "invalid criteria version.");
+  }
+  const datedBaselines = approvals.length ? baselineIndex(history.baselines) : null;
+  const superseded = new Set();
+  for (const [index, version] of history.revisions.entries()) {
+    const row = version?.observation;
+    requireHistory(version?.id === index + 1 && validId(row?.pointId) && isoDate(row.date)
+      && Number.isFinite(row.reading) && typeof row.note === "string", "invalid observation revision.");
+    let prior;
+    if (version.supersedes !== null) {
+      prior = history.revisions[version.supersedes - 1];
+      requireHistory(Number.isInteger(version.supersedes) && version.supersedes > 0 && version.supersedes < version.id
+        && !superseded.has(version.supersedes) && prior?.observation.date === row.date
+        && matchesMarker(prior.observation.pointId, row.pointId, version.renames), "invalid correction chain.");
+      superseded.add(version.supersedes);
+    } else {
+      requireHistory(version.renames === undefined, "rename evidence needs a preceding revision.");
+    }
+    const snapshot = version.assessment;
+    if (prior && prior.observation.reading === row.reading) {
+      requireHistory(row.note !== prior.observation.note && snapshot === null
+        && version.approvedAssessment === undefined
+        && version.assessmentSourceRevision === (prior.assessmentSourceRevision ?? prior.id),
+      "note revision must retain its preceding assessment source.");
+      continue;
+    }
+    requireHistory(version.assessmentSourceRevision === undefined,
+      "only a note revision can inherit an assessment source.");
+    if (snapshot === null) {
+      requireHistory(version.supersedes === null && version.approvedAssessment === undefined, "an unknown legacy revision cannot replace an assessment.");
+      continue;
+    }
+    const baseline = history.baselines[snapshot?.baselineVersion - 1];
+    const criteria = history.criteria[snapshot?.criteriaVersion - 1];
+    requireHistory(snapshot?.method === METHOD && baseline?.id === snapshot.baselineVersion
+      && criteria?.id === snapshot.criteriaVersion && baseline.pointId === row.pointId
+      && snapshot.rule === criteria.rule && timestamp(snapshot.assessedAt)
+      && Date.parse(baseline.recordedAt) <= Date.parse(snapshot.assessedAt)
+      && Date.parse(criteria.recordedAt) <= Date.parse(snapshot.assessedAt), "invalid assessment source versions.");
+    const result = calculate(baseline, criteria, row);
+    requireHistory(Number.isFinite(result.settlementMm) && snapshot.settlementMm === result.settlementMm
+      && snapshot.severity === result.severity && snapshot.basis === basisFor(criteria, row.date, snapshot.assessedAt),
+    "assessment does not match its captured sources.");
+    if (snapshot.approvalScope === undefined) {
+      requireHistory(version.approvedAssessment === undefined, "approval evidence needs its captured source scope.");
+      continue;
+    }
+    const { baselineCount, approvalCount } = snapshot.approvalScope ?? {};
+    requireHistory(Number.isInteger(baselineCount) && baselineCount >= snapshot.baselineVersion && baselineCount <= history.baselines.length
+      && Number.isInteger(approvalCount) && approvalCount >= 0 && approvalCount <= approvals.length,
+    "invalid approved assessment source bounds.");
+    const expected = approvedDecision(datedBaselines, approvals, row, snapshot.assessedAt, baselineCount, approvalCount);
+    const approved = version.approvedAssessment;
+    const matches = expected === null ? approved === null : approved && Object.keys(approved).length === Object.keys(expected).length
+      && Object.entries(expected).every(([key, value]) => approved[key] === value);
+    requireHistory(matches, "approved assessment does not match its dated sources.");
+  }
+  const currentRows = new Map(state.records.map(row => [recordKey(row), row]));
+  const linkedKeys = new Set(), linkedIds = new Set();
+  function verifyHead(link) {
+    requireHistory(Number.isInteger(link?.revisionId), "invalid observation link.");
+    const revision = history.revisions[link.revisionId - 1];
+    requireHistory(revision && (revision.assessment || revision.assessmentSourceRevision)
+      && !superseded.has(revision.id) && !linkedIds.has(revision.id)
+      && revision.observation.date === link.date
+      && matchesMarker(revision.observation.pointId, link.pointId, link.renames),
+    "observation link does not match its revision.");
+    linkedIds.add(revision.id);
+    return revision;
+  }
+  for (const link of history.active) {
+    const revision = verifyHead(link);
+    const key = recordKey(link), raw = currentRows.get(key);
+    requireHistory(raw && !linkedKeys.has(key)
+      && revision.observation.reading === Number(raw.reading) && revision.observation.note === String(raw.note ?? ""),
+    "current observation does not match its revision.");
+    linkedKeys.add(key);
+  }
+  for (const link of history.archived) {
+    verifyHead(link);
+    requireHistory(timestamp(link.archivedAt), "invalid archive timestamp.");
+  }
+  requireHistory(linkedIds.size + superseded.size === history.revisions.length,
+    "every terminal revision needs an active or archived link.");
+  for (const entry of history.legacy) {
+    requireHistory(entry && validId(entry.pointId) && isoDate(entry.date), "invalid legacy observation link.");
+    const key = recordKey(entry);
+    requireHistory(currentRows.has(key) && !linkedKeys.has(key), "legacy observation link is missing its row or overlaps another link.");
+    linkedKeys.add(key);
+  }
+  requireHistory(linkedKeys.size === currentRows.size, "every current observation needs an active or legacy link.");
+}
+
+function preview(state, analysis, at) {
+  if (!analysis.canSubmit) throw new Error("Correct invalid or conflicting monitoring observations before previewing the assessment basis.");
+  const history = capture(state, { ...state, records: analysis.records }, { at });
+  const heads = new Map(history.active.map(link => [recordKey(link), link.revisionId]));
+  const points = latestBy(state.points, "id");
+  const rows = analysis.changes.map(({ row, after }) => {
+    const revision = resolveRevision(state, history, history.revisions[heads.get(recordKey(after)) - 1]);
+    const point = points.get(after.pointId);
+    const criteria = configuredCriteria(state, point.rule);
+    const operational = revision.assessment ? {
+      ...revision.assessment, baseline: revision.baseline, criteria: revision.criteria
+    } : null;
+    return {
+      row, pointId: after.pointId, date: after.date, operational, approved: revision.approvedAssessment ?? null,
+      retainsPriorAssessment: Boolean(revision.assessmentSourceRevision),
+      current: { baseline: Number(point.baseline), criteria, ...calculate(point, criteria, after) }
+    };
+  });
+  return { observedHongKongDay: observationDay(at), rows };
+}
+
+function reportEvidence(state, records, input = {}, maximum = 10000) {
+  const approvalVersion = input?.approvalVersion ?? null;
+  if (approvalVersion !== null && (!Number.isSafeInteger(approvalVersion) || approvalVersion < 1
+      || !state.groundCriteriaApprovals?.some(approval => approval.id === approvalVersion))) {
+    throw new Error("The selected report refers to an unavailable Ground approval version.");
+  }
+  const history = state.groundHistory ?? newHistory();
+  const active = new Map(history.active.map(link => [recordKey(link), link.revisionId]));
+  const points = latestBy(state.points, "id");
+  const rows = [];
+  let excluded = 0;
+  for (const record of [...records].sort((a, b) => a.date.localeCompare(b.date) || a.pointId.localeCompare(b.pointId))) {
+    const point = points.get(record.pointId);
+    const criteria = configuredCriteria(state, point.rule);
+    const head = active.get(recordKey(record));
+    let id = head;
+    do {
+      const revision = id ? resolveRevision(state, history, history.revisions[id - 1]) : null;
+      const approved = revision?.approvedAssessment;
+      if (approvalVersion !== null && approved?.approvalVersion !== approvalVersion) excluded++;
+      else {
+        if (rows.length >= maximum) throw new Error("Ground history contains too many report rows. Narrow the period, points or approved version, or omit Ground history.");
+        const row = revision?.observation ?? record;
+        const recorded = revision?.historicalStatus === "captured" ? revision.assessment : null;
+        rows.push({
+          pointId: record.pointId, sourcePointId: row.pointId, date: row.date, revisionId: id ?? null,
+          superseded: Boolean(id && id !== head), readingMpd: Number(row.reading),
+          recorded: recorded ? { baselineVersion: recorded.baselineVersion, criteriaVersion: recorded.criteriaVersion,
+            sourceRevision: revision.assessmentSourceRevision ?? id, assessedAt: recorded.assessedAt, rule: recorded.rule,
+            baselineMpd: revision.baseline.baseline, approach: revision.criteria.approach, limits: { ...revision.criteria.limits },
+            settlementMm: recorded.settlementMm, severity: recorded.severity } : null,
+          approved: approved ? { approvalVersion: approved.approvalVersion, baselineVersion: approved.baselineVersion,
+            assessedAt: approved.assessedAt, documentRef: approved.approval.documentRef, effectiveDate: approved.approval.effectiveDate,
+            baselineMpd: approved.baseline.baseline, approach: approved.approval.approach, rule: approved.approval.rule,
+            limits: { ...approved.approval.limits }, settlementMm: approved.settlementMm, severity: approved.severity } : null,
+          current: { baselineMpd: Number(point.baseline), approach: criteria.approach, rule: criteria.rule,
+            limits: criteria.limits, reviewRequired: criteria.reviewRequired, ...calculate(point, criteria, row) }
+        });
+      }
+      id = revision?.supersedes;
+    } while (id);
+  }
+  return { rows, excluded, approvalVersion };
+}
+
+module.exports = { capture, describe, preview, reportEvidence, validate };
+
+},{"./ground-criteria-approval":133,"./monitoring-core":138,"./reminder-email":141}],136:[function(require,module,exports){
+"use strict";
+
+const STATUSES = { accepted: "Accepted", returned: "Returned", remeasure: "Remeasure requested" };
+const LABELS = { ...STATUSES, unreviewed: "Unreviewed", legacy: "Review history unavailable" };
+const ROLES = ["admin", "project_staff"];
+const ledger = state => state.groundObservationReviews ?? [];
+const statusIndex = state => new Map(ledger(state).map(entry => [entry.revisionId, entry]));
+
+function problem(status, message) {
+  return Object.assign(new Error(message), { status });
+}
+
+function reviewable(revision) {
+  return revision && (revision.assessment || revision.assessmentSourceRevision);
+}
+
+function checkedFields(entry, revisions) {
+  const source = revisions[entry.revisionId - 1];
+  const basis = source?.assessmentSourceRevision ? revisions[source.assessmentSourceRevision - 1] : source;
+  if (!Number.isSafeInteger(entry.revisionId) || !reviewable(source)
+      || entry.pointId !== source.observation.pointId || entry.date !== source.observation.date) {
+    throw problem(422, "The review must reference a captured observation revision with matching identity.");
+  }
+  if (!ROLES.includes(entry.role) || !Object.hasOwn(STATUSES, entry.status)) {
+    throw problem(422, "Select an authorized review outcome.");
+  }
+  if (typeof entry.reason !== "string" || !entry.reason.trim() || entry.reason !== entry.reason.trim() || entry.reason.length > 2000) {
+    throw problem(422, "Enter a review reason of up to 2000 characters.");
+  }
+  const date = new Date(entry.reviewedAt);
+  if (typeof entry.reviewedAt !== "string" || !Number.isFinite(date.getTime()) || date.toISOString() !== entry.reviewedAt) {
+    throw problem(422, "The review time must be a valid UTC timestamp.");
+  }
+  if (basis?.assessment && entry.reviewedAt < basis.assessment.assessedAt) {
+    throw problem(422, "Review time is before the source assessment.");
+  }
+}
+
+function record(state, input, role, reviewedAt) {
+  if (!ROLES.includes(role)) throw problem(403, "This simulated role cannot review Ground observations.");
+  const history = state.groundHistory;
+  const link = history?.active.find(row => row.pointId === input.pointId && row.date === input.date);
+  if (!link || link.revisionId !== input.revisionId) {
+    throw problem(409, "The selected observation revision changed or has no reviewable history. Select the current revision.");
+  }
+  const previous = statusIndex(state).get(link.revisionId);
+  if (previous && (input.status === previous.status || reviewedAt < previous.reviewedAt)) {
+    throw problem(409, "The decision repeats the current review state or predates its recorded review.");
+  }
+  const source = history.revisions[link.revisionId - 1].observation;
+  const entries = ledger(state);
+  const entry = { id: entries.length + 1, revisionId: link.revisionId, pointId: source.pointId, date: source.date,
+    status: input.status, reason: typeof input.reason === "string" ? input.reason.trim() : input.reason, role, reviewedAt };
+  checkedFields(entry, history.revisions);
+  return { ...state, groundObservationReviews: [...entries, entry] };
+}
+
+function statusByObservation(state) {
+  const latest = statusIndex(state);
+  return new Map((state.groundHistory?.active ?? []).map(row => [
+    JSON.stringify([row.pointId, row.date]), LABELS[latest.get(row.revisionId)?.status ?? "unreviewed"]
+  ]));
+}
+
+function pendingCount(state) {
+  const latest = statusIndex(state);
+  return (state.groundHistory?.active ?? []).filter(row => !latest.has(row.revisionId)).length;
+}
+
+function queue(state) {
+  const history = state.groundHistory;
+  if (!history) return { observations: [], legacyCount: state.records.length };
+  const entries = ledger(state), latest = statusIndex(state), counts = new Map(), chainCounts = new Map();
+  for (const entry of entries) counts.set(entry.revisionId, (counts.get(entry.revisionId) ?? 0) + 1);
+  for (const revision of history.revisions) {
+    chainCounts.set(revision.id, (chainCounts.get(revision.supersedes) ?? 0) + (counts.get(revision.id) ?? 0));
+  }
+  const observations = history.active.map(link => {
+    const source = history.revisions[link.revisionId - 1];
+    return { ...link, reading: source.observation.reading, reviewStatus: latest.get(source.id)?.status ?? "unreviewed",
+      priorReviewCount: chainCounts.get(source.supersedes) ?? 0 };
+  });
+  return { observations, legacyCount: history.legacy?.length ?? 0 };
+}
+
+function validate(state) {
+  if (!Object.hasOwn(state, "groundObservationReviews")) return;
+  const entries = state.groundObservationReviews;
+  if (!Array.isArray(entries)) throw new Error("Invalid Ground review history: expected a decision list.");
+  const revisions = state.groundHistory?.revisions ?? [], latest = new Map();
+  try {
+    entries.forEach((entry, index) => {
+      if (!entry || entry.id !== index + 1) throw new Error("Decision IDs must preserve their recorded order.");
+      checkedFields(entry, revisions);
+      const previous = latest.get(entry.revisionId);
+      if (previous && (entry.status === previous.status || entry.reviewedAt < previous.reviewedAt)) {
+        throw new Error("A decision repeats or predates the previous state for the same observation revision.");
+      }
+      latest.set(entry.revisionId, entry);
+    });
+  } catch (error) {
+    throw new Error("Invalid Ground review history: " + error.message);
+  }
+}
+
+module.exports = { LABELS, record, queue, pendingCount, statusByObservation, statusIndex, validate };
+
+},{}],137:[function(require,module,exports){
+"use strict";
+
+const { isoDate, finiteNumber } = require("./monitoring-core");
+const { hongKongDay } = require("./ground-criteria-approval");
+
+const DAY_MS = 86400000;
+const utcDay = date => Date.parse(date + "T00:00:00Z") / DAY_MS;
+
+function checked(input, pointIds) {
+  if (!pointIds.has(input?.pointId)) throw new Error("Select an existing point in this project.");
+  if (!isoDate(input.firstDueDate)) throw new Error("Choose a valid date for the first scheduled measurement.");
+  if (!Number.isInteger(input.intervalDays) || input.intervalDays < 1 || input.intervalDays > 3650) {
+    throw new Error("Enter a measurement interval in whole days from 1 to 3650.");
+  }
+  const { pointId, firstDueDate, intervalDays } = input;
+  return { pointId, firstDueDate, intervalDays };
+}
+
+function saveSchedule(state, input) {
+  const points = new Set(state.points.map(point => point.id));
+  if (!points.has(input?.pointId)) throw new Error("Select an existing point in this project.");
+  const others = (state.groundSchedules ?? []).filter(row => row.pointId !== input.pointId);
+  const groundSchedules = input.action === "clear" ? others : [...others, checked(input, points)];
+  return { ...state, groundSchedules };
+}
+
+function retainSchedules(state, points, rename) {
+  const active = new Set(points.map(point => point.id));
+  return state.groundSchedules.map(row => row.pointId === rename?.from ? { ...row, pointId: rename.to } : row)
+    .filter(row => active.has(row.pointId));
+}
+
+function validate(state) {
+  if (!Object.hasOwn(state, "groundSchedules")) return;
+  if (!Array.isArray(state.groundSchedules)) throw new Error("Ground schedules must be a list.");
+  const seen = new Set(), points = new Set(state.points.map(point => point.id));
+  for (const entry of state.groundSchedules) {
+    const row = checked(entry, points);
+    if (seen.has(row.pointId)) throw new Error("Ground schedules contain a duplicate point.");
+    seen.add(row.pointId);
+  }
+}
+
+function summarize(state, at = new Date()) {
+  const date = hongKongDay(at), day = utcDay(date);
+  const schedules = new Map((state.groundSchedules ?? []).map(row => [row.pointId, row]));
+  const last = new Map();
+  for (const row of state.records) {
+    if (!isoDate(row.date) || row.date > date || !finiteNumber(row.reading)) continue;
+    if (!last.has(row.pointId) || row.date > last.get(row.pointId)) last.set(row.pointId, row.date);
+  }
+  const tasks = state.points.map(point => {
+    const schedule = schedules.get(point.id);
+    const days = schedule && day - utcDay(schedule.firstDueDate);
+    const due = schedule && days >= 0 && days % schedule.intervalDays === 0;
+    const lastDate = last.get(point.id) ?? null;
+    const status = !schedule ? "unconfigured" : !due ? "not_due" : lastDate === date ? "completed" : "missing";
+    return { pointId: point.id, lastDate, schedule: schedule ?? null, status };
+  });
+  const completed = tasks.filter(row => row.status === "completed").length;
+  const missing = tasks.filter(row => row.status === "missing").map(row => row.pointId);
+  return { date, expected: schedules.size ? completed + missing.length : null, completed, missing,
+    unconfigured: tasks.filter(row => row.status === "unconfigured").length, tasks };
+}
+
+module.exports = { hongKongDay, saveSchedule, retainSchedules, validate, summarize };
+
+},{"./ground-criteria-approval":133,"./monitoring-core":138}],138:[function(require,module,exports){
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
@@ -27319,7 +28232,7 @@ window.trialRequest=async(url,options={})=>{
     validateImageDimensions, imageDimensions, imageDimensionsFromDataUrl, boundedImageExport };
 });
 
-},{}],134:[function(require,module,exports){
+},{}],139:[function(require,module,exports){
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./monitoring-core"));
   else root.MonitoringQuality = factory(root.MonitoringCore);
@@ -27552,7 +28465,7 @@ window.trialRequest=async(url,options={})=>{
   return { defaults, rules, analyze, prepare, markerRename, findingId, reviewedInAudit, reviewIndex };
 });
 
-},{"./monitoring-core":133}],135:[function(require,module,exports){
+},{"./monitoring-core":138}],140:[function(require,module,exports){
 (function (Buffer){(function (){
 "use strict";
 
@@ -27565,6 +28478,8 @@ const { listReviews } = require("./utility-review");
 const { history: utilityLimitHistory } = require("./utility-settlement-limits");
 const { listAssessments, assessmentFilter } = require("./structure-assessments");
 const StructureFollowup = require("./structure-followup");
+const GroundHistory = require("./ground-history");
+const ReportLabels = require("./report-labels");
 
 const DEFAULT_SECTIONS = ["summary", "daily", "weekly", "monthly", "quality", "exceedances", "followups", "trends"];
 const SECTION_KEYS = [...DEFAULT_SECTIONS, "utility", "structure"];
@@ -27670,13 +28585,17 @@ function config(state, input = {}) {
   };
 }
 
-function severity(state, point, record) {
+function severity(state, point, record, trial) {
   const reached = reachedLevel(state, point, record);
+  if (!reached && trial) {
+    const configured = Boolean(state.thresholdSettings?.[point.rule]);
+    return { key: configured ? "okay" : "not_configured", label: configured ? "Below configured thresholds" : "Criteria not configured", rank: -1 };
+  }
   return { key: reached?.key || "okay", label: reached?.label || "Okay", rank: reached ? approachLevels[state.monitoringApproach === "5A" ? "5A" : "3A"].findIndex(level => level.key === reached.key) : -1 };
 }
 
-function row(state, point, record) {
-  const status = severity(state, point, record);
+function row(state, point, record, trial) {
+  const status = severity(state, point, record, trial);
   return { pointId: point.id, facility: point.facility || "", ruleKey: point.rule, date: record.date, reading: Number(record.reading), settlement: core.settlement(point, record), note: String(record.note || ""), severityKey: status.key, severityLabel: status.label, severityRank: status.rank, sourceKey: `${point.id}|${record.date}` };
 }
 
@@ -27718,7 +28637,19 @@ function relevantFollowups(state, ids, range) {
 
 function buildMonitoringReport(state, input = {}, context = {}) {
   core.validateState(state);
+  const trial = context.allowReportLanguages === true;
+  const locale = trial ? input.language ?? "en" : "en";
+  if (trial && !["en", "zh-HK"].includes(locale)) throw new Error("Select English or Traditional Chinese as the report language.");
+  if (!trial && input.language != null && input.language !== "en") throw new Error("The hosted monitoring report has an English-only output contract.");
+  const t = ReportLabels.translate(locale);
   const range = period(state, input.period || {}), scope = selectedPoints(state, input.filter || {}), layout = config(state, input.layout || {});
+  if (locale === "zh-HK") {
+    if (range.type === "month") range.label = "月份 " + range.start.slice(0, 7);
+    else if (range.start) range.label = (range.type === "week" ? "週 " : "") + range.start + " 至 " + range.end;
+    else range.label = "全期：無觀測紀錄";
+    if (layout.title === "Settlement Monitoring Report") layout.title = t(layout.title);
+    if (layout.footer === "Engineering review aid - authorised interpretation required") layout.footer = t(layout.footer);
+  }
   const ids = new Set(scope.markerIds);
   const includeStructure = layout.sections.includes("structure");
   const structureFilter = includeStructure ? assessmentFilter({
@@ -27758,18 +28689,28 @@ function buildMonitoringReport(state, input = {}, context = {}) {
     }) : [];
   const records = state.records.filter(record => ids.has(record.pointId) && inRange(record.date, range));
   if (records.length + structureAssessments.length > MAX_REPORT_RECORDS) throw new Error(`The selected report contains more than ${MAX_REPORT_RECORDS} observations. Narrow the period or marker scope.`);
+  const groundHistory = context.includeGroundHistory && input.groundHistory?.include !== false
+    ? GroundHistory.reportEvidence(state, records, input.groundHistory, MAX_REPORT_RECORDS) : null;
   const points = new Map(scope.points.map(point => [point.id, point]));
   const recordsByPoint = new Map(scope.points.map(point => [point.id, []]));
   for (const record of state.records) if (ids.has(record.pointId)) recordsByPoint.get(record.pointId).push(record);
   for (const history of recordsByPoint.values()) history.sort((a, b) => a.date.localeCompare(b.date));
-  const daily = records.map(record => row(state, points.get(record.pointId), record)).sort((a, b) => a.date.localeCompare(b.date) || a.pointId.localeCompare(b.pointId));
+  const reviewByObservation = context.groundObservationReview;
+  const daily = records.map(record => {
+    const item = row(state, points.get(record.pointId), record, trial);
+    if (reviewByObservation) item.observationReview = reviewByObservation.get(JSON.stringify([record.pointId, record.date])) ?? "Review history unavailable";
+    return item;
+  }).sort((a, b) => a.date.localeCompare(b.date) || a.pointId.localeCompare(b.pointId));
+  const reviewCounts = new Map();
+  if (reviewByObservation) for (const item of daily) reviewCounts.set(item.observationReview, (reviewCounts.get(item.observationReview) ?? 0) + 1);
+  const reviewSummary = [...reviewCounts].sort(([a], [b]) => a.localeCompare(b)).map(([label,count]) => t(label) + ": " + count).join(", ");
   const summaries = scope.points.map(point => {
     const all = recordsByPoint.get(point.id);
     const within = all.filter(record => inRange(record.date, range));
     const opening = openingRecord(all, within, range.start), closing = within.at(-1) || null;
     const openingSettlement = opening.record ? core.settlement(point, opening.record) : null, closingSettlement = closing ? core.settlement(point, closing) : null;
-    const peak = within.length ? within.map(record => row(state, point, record)).reduce((found, item) => Math.abs(item.settlement) > Math.abs(found.settlement) ? item : found) : null;
-    const worst = within.length ? within.map(record => row(state, point, record)).reduce((found, item) => item.severityRank > found.severityRank ? item : found) : null;
+    const peak = within.length ? within.map(record => row(state, point, record, trial)).reduce((found, item) => Math.abs(item.settlement) > Math.abs(found.settlement) ? item : found) : null;
+    const worst = within.length ? within.map(record => row(state, point, record, trial)).reduce((found, item) => item.severityRank > found.severityRank ? item : found) : null;
     return { pointId: point.id, facility: point.facility || "", type: point.type || "", ruleKey: point.rule, baseline: Number(point.baseline), observationCount: within.length, openingDate: opening.record?.date || null, openingBasis: opening.basis, openingSettlement, closingDate: closing?.date || null, closingSettlement, periodMovement: opening.record && closing && opening.record.date !== closing.date ? roundTenth(closingSettlement - openingSettlement) : null, peakDate: peak?.date || null, peakSettlement: peak?.settlement ?? null, worstSeverity: worst?.severityLabel || "No observation", ruleVersion: ruleVersion(state, point) };
   });
   const qualityResult = Quality.analyze(state, [], { rules: state.qualityRules || {}, asOf: state.qualityAsOf || undefined });
@@ -27781,15 +28722,23 @@ function buildMonitoringReport(state, input = {}, context = {}) {
   });
   const exceedances = daily.filter(item => item.severityRank >= 0).map(item => ({ ...item, assessmentBasis: "Re-evaluated under current threshold rules" }));
   const approach = state.monitoringApproach === "5A" ? "5A" : "3A";
-  const thresholdGroups = [...new Set(scope.points.map(point => point.rule))].map(ruleKey => ({ ruleKey, approach, levels: approachLevels[approach].map(level => ({ key: level.key, label: level.label, valueMm: Number(state.thresholdSettings?.[ruleKey]?.[level.key]) })) }));
+  const thresholdGroups = [...new Set(scope.points.map(point => point.rule))].map(ruleKey => ({ ruleKey, approach, levels: approachLevels[approach].filter(level => !trial || core.finiteNumber(state.thresholdSettings?.[ruleKey]?.[level.key]))
+    .map(level => ({ key: level.key, label: level.label, valueMm: Number(state.thresholdSettings?.[ruleKey]?.[level.key]) })) }));
   const generatedAt = context.generatedAt ? new Date(context.generatedAt) : new Date();
   if (!Number.isFinite(generatedAt.getTime())) throw new Error("Report generation time is invalid.");
   const snapshot = {
-    schemaVersion: 1, outputLanguage: "English", projectName: state.projectName || "Settlement Monitoring Project", generatedAt: generatedAt.toISOString(), sourceRevision: String(context.sourceRevision || "unavailable"), generatedBy: String(context.generatedBy || "unknown"), period: range,
+    schemaVersion: 1, outputLanguage: locale === "zh-HK" ? t("Traditional Chinese") : "English", ...(trial ? { locale } : {}), projectName: state.projectName || "Settlement Monitoring Project", generatedAt: generatedAt.toISOString(), sourceRevision: String(context.sourceRevision || "unavailable"), generatedBy: String(context.generatedBy || "unknown"), period: range,
     filter: { mode: scope.mode, facility: scope.facility, markerIds: scope.markerIds }, layout, monitoringApproach: approach,
     signConvention: "Accumulated settlement (mm) = (measured level - initial level) x 1000. Negative values indicate settlement; positive values indicate heave. Threshold severity uses absolute magnitude.",
-    thresholdAssessment: "Ground threshold history is not stored. Ground exceedances are re-evaluated under the current rules captured in this snapshot. Structure and Utility sections retain their captured criteria decisions and explicitly identify unassessed legacy results.",
+    thresholdAssessment: (groundHistory
+      ? "Ground exceedance summaries use the current rules captured in this snapshot. Ground assessment history separates recorded operational and approved evidence from current comparisons. Missing historical evidence stays unknown."
+      : reviewByObservation
+      ? "This report compares Ground readings against the current rules captured in this snapshot. Where available, recorded historical Ground assessments can be viewed in the observation details."
+      : "Ground threshold history is not stored. Ground exceedances are re-evaluated under the current rules captured in this snapshot.")
+      + " Structure and Utility sections retain their captured criteria decisions and explicitly identify unassessed legacy results.",
     qualityAssessment: "Data-quality findings are separate from engineering severity and do not remove or replace measured observations.",
+    ...(reviewByObservation ? { observationReviewSummary: (reviewSummary || t("No Ground observations in scope"))
+      + (locale === "zh-HK" ? "。" : ". ") + t("No observations excluded by review state. Trial decisions are simulated.") } : {}),
     thresholdGroups, qualityRuleVersion: qualityResult.ruleVersion, qualityRules: qualityResult.rules,
     summary: { markers: summaries.length, observations: daily.length, markersWithoutObservations: summaries.filter(item => !item.observationCount).length, qualityFindings: quality.length, thresholdExceedances: exceedances.length, outstandingFollowups: relevantFollowups(state, ids, range).filter(item => item.status !== "closed").length },
     markers: summaries,
@@ -27799,13 +28748,14 @@ function buildMonitoringReport(state, input = {}, context = {}) {
     qualityFindings: layout.sections.includes("quality") ? quality : [],
     exceedances: layout.sections.includes("exceedances") ? exceedances : [],
     followups: layout.sections.includes("followups") ? relevantFollowups(state, ids, range) : [],
+    ...(groundHistory ? { groundHistory } : {}),
     ...(includeUtility ? { utilityReviews } : {}),
     ...(includeStructure ? { structureAssessments, structureFilter,
       structureFollowups: StructureFollowup.listFollowups(state, true).filter(event => structureAssessments.some(row => row.id === event.assessmentId)) } : {}),
     trends: layout.sections.includes("trends") ? thresholdGroups.map(group => ({ ruleKey: group.ruleKey, thresholds: group.levels, series: scope.points.filter(point => point.rule === group.ruleKey).map(point => ({ pointId: point.id, values: daily.filter(item => item.pointId === point.id).map(item => ({ date: item.date, settlement: item.settlement })) })) })) : [],
     notices: ["This report is a review aid. Engineering interpretation and response decisions require an authorised person.", "Missing observations are shown as missing and are never replaced with zero.", "Accumulated settlement values are not summed to calculate total movement."]
   };
-  assertEnglishOutput(snapshot);
+  if (!trial) assertEnglishOutput(snapshot);
   snapshot.snapshotHash = crypto.createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
   return snapshot;
 }
@@ -27813,7 +28763,7 @@ function buildMonitoringReport(state, input = {}, context = {}) {
 module.exports = { MAX_REPORT_RECORDS, SECTION_KEYS, assertEnglishOutput, buildMonitoringReport, isEnglishOutputText, period };
 
 }).call(this)}).call(this,require("buffer").Buffer)
-},{"./alert-followup":127,"./monitoring-core":133,"./monitoring-quality":134,"./reminder-email":136,"./structure-assessments":138,"./structure-followup":140,"./utility-review":146,"./utility-settlement-limits":148,"buffer":8,"crypto":124}],136:[function(require,module,exports){
+},{"./alert-followup":127,"./ground-history":135,"./monitoring-core":138,"./monitoring-quality":139,"./reminder-email":141,"./report-labels":142,"./structure-assessments":144,"./structure-followup":146,"./utility-review":158,"./utility-settlement-limits":160,"buffer":8,"crypto":124}],141:[function(require,module,exports){
 const crypto = require("crypto");
 const { finiteNumber, isoDate, settlement } = require("./monitoring-core");
 
@@ -27946,7 +28896,210 @@ function prepareReminderRetry(state) {
 
 module.exports = { accumulatedSettlement, approachLevels, buildReminderEntries, composeReminder, reachedLevel, prepareReminderRetry };
 
-},{"./monitoring-core":133,"crypto":124}],137:[function(require,module,exports){
+},{"./monitoring-core":138,"crypto":124}],142:[function(require,module,exports){
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) module.exports = factory();
+  else root.MonitoringReportLabels = factory();
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  "use strict";
+
+  const traditional = {
+    "Settlement Monitoring Report": "地面沉降監測報告",
+    "Engineering review aid - authorised interpretation required": "工程覆核參考，須由獲授權人員解讀",
+    "English": "英文",
+    "Traditional Chinese": "繁體中文",
+    "Period": "期間",
+    "Generated": "生成時間",
+    "Revision": "版本",
+    "Markers": "監測點",
+    "Observations": "觀測筆數",
+    "No observations": "缺測點",
+    "Quality findings": "品質異常",
+    "Exceedances": "超限紀錄",
+    "Open follow-ups": "未結案跟進",
+    "Point / facility": "監測點／設施",
+    "Monitoring point summary": "監測點摘要",
+    "Rule": "準則",
+    "Initial mPD": "初始標高 mPD",
+    "Records": "觀測筆數",
+    "Opening date / mm": "起始日期／mm",
+    "Closing date / mm": "期末日期／mm",
+    "Period movement mm": "期內變化 mm",
+    "Peak / worst": "最大幅度／最高級別",
+    "Daily observation detail": "每日觀測明細",
+    "Date": "日期",
+    "Point": "監測點",
+    "Facility": "設施",
+    "Reading mPD": "實測標高 mPD",
+    "Settlement mm": "累積沉降 mm",
+    "Status": "狀態",
+    "Note / source": "備註／來源",
+    "Weekly summaries": "每週摘要",
+    "Monthly summaries": "每月摘要",
+    "First / last": "最早／最近",
+    "Closing mm": "期末值 mm",
+    "Movement mm": "變化 mm",
+    "Peak date / mm": "最大幅度日期／mm",
+    "Worst status": "最高級別",
+    "Data-quality findings": "數據品質異常",
+    "Finding": "異常",
+    "Evidence": "證據",
+    "Review": "覆核",
+    "Confirmed by": "確認人",
+    "Needs review": "待覆核",
+    "Threshold exceedance history": "超限歷史",
+    "Level": "級別",
+    "Assessment": "判定",
+    "Follow-up actions": "跟進與處置",
+    "Follow-up actions: No entries in the selected scope.": "跟進與處置：所選範圍無紀錄。",
+    "Point / event": "監測點／事件",
+    "Trigger / latest": "觸發／最近",
+    "Severity": "工程級別",
+    "Workflow": "處置進度",
+    "Owner / due": "責任人／期限",
+    "Action / closure evidence": "處置／結案證據",
+    "Utility settlement reviews": "管線沉降覆核",
+    "Date / segment": "日期／區段",
+    "A / B / difference (mm)": "A／B／差值（mm）",
+    "Source / review ID": "來源／覆核編號",
+    "Warning / limits": "預警／門檻",
+    "Utility time, precision and assessment evidence": "管線時間、精度及判定證據",
+    "Review ID": "覆核編號",
+    "Recorded contract": "已記錄的判定依據",
+    "Utility warning checks": "管線預警檢查",
+    "Metric / point": "指標／監測點",
+    "Value (mm)": "數值（mm）",
+    "Limit (mm)": "門檻（mm）",
+    "Downward settlement": "向下沉降",
+    "Absolute A/B difference": "A／B 絕對差值",
+    "B minus A": "B 減 A",
+    "Survey": "量測",
+    "Baseline": "基準",
+    "Utility": "管線",
+    "Segment": "區段",
+    "Historical only": "僅供歷史查閱",
+    "Criteria scope": "準則適用範圍",
+    "Structure assessments": "結構傾斜評估",
+    "Date / structure": "日期／結構",
+    "Configuration": "配置",
+    "Movement / ratio / grid azimuth": "位移／傾斜比／方格方位角",
+    "Source status": "來源狀態",
+    "Observation revision": "觀測修訂",
+    "Level (ratio 0)": "水平（比率 0）",
+    "No direction": "無方向",
+    "Structure warning follow-up (workflow does not clear severity)": "結構預警跟進（處置不清除工程級別）",
+    "Captured warning / response": "記錄的預警／處置",
+    "Structure source revisions": "結構來源版本",
+    "Source": "來源",
+    "Fixed reference": "固定引用",
+    "Captured evidence": "保存的證據",
+    "Structure": "結構",
+    "Observation": "觀測",
+    "Evidence contract": "證據契約",
+    "Top E/N": "頂部東／北坐標",
+    "Bottom E/N": "底部東／北坐標",
+    "Top": "頂部",
+    "Bottom": "底部",
+    "Height": "有效高度",
+    "Baseline epoch": "基準期次",
+    "Traceability and limitations": "追溯資料及限制",
+    "Item": "項目",
+    "Snapshot evidence": "快照證據",
+    "Output language": "輸出語言",
+    "Snapshot hash": "快照雜湊",
+    "Source revision": "來源版本",
+    "Quality rule version": "品質規則版本",
+    "Generated by / at": "生成者／時間",
+    "Threshold groups": "門檻組別",
+    "Selected markers": "所選監測點",
+    "Selected sections": "所選章節",
+    "Threshold assessment": "門檻判定",
+    "Ground observation review": "地面觀測覆核",
+    "Ground assessment history": "地面監測歷史判定",
+    "Point / date / revision": "監測點／日期／修訂",
+    "Recorded operational judgment": "已記錄的操作判定",
+    "Approved dated evidence": "有生效日期的批准證據",
+    "Current comparison for this reading": "同一讀數按現行準則比較",
+    "All selected approval versions": "全部所選批准版本",
+    "Approved version": "批准版本",
+    "evidence row": "筆證據",
+    "evidence rows": "筆證據",
+    "excluded by the historical filter.": "筆由歷史篩選排除。",
+    "Current report totals use the selected period and points.": "現行報表總數按所選期間及監測點計算。",
+    "Historical judgment unknown": "歷史判定未知",
+    "Historical approval unknown": "歷史批准未知",
+    "Revision unavailable": "修訂資料缺失",
+    "Superseded": "已被取代",
+    "Current revision": "目前修訂",
+    "Source point": "來源測點",
+    "Criteria": "準則",
+    "source revision": "來源修訂",
+    "Approval": "批准",
+    "effective": "生效",
+    "Hong Kong": "香港",
+    "Operational criteria pending review": "操作準則待覆核",
+    "Trend chart": "趨勢圖",
+    "Accumulated settlement (mm); negative is settlement": "累積沉降（mm）；負值代表沉降",
+    "Threshold baselines are shown as negative values. The chart and detail tables use the same immutable snapshot.": "圖中門檻以負值顯示。圖表與明細使用同一固定快照。",
+    "No entries in the selected scope.": "所選範圍無紀錄。",
+    "No Ground assessment evidence in the selected scope.": "所選範圍無地面監測判定證據。",
+    "No observations are available for this threshold group in the selected period.": "所選期間內此門檻組別無觀測紀錄。",
+    "Unavailable": "缺失",
+    "Not set": "未設定",
+    "Unassigned": "未指派",
+    "No observation": "缺測",
+    "Below configured thresholds": "未超已配置門檻",
+    "Criteria not configured": "準則未配置",
+    "Alert": "警戒",
+    "Alarm": "警報",
+    "Action": "行動",
+    "Action 1": "行動 1",
+    "Action 2": "行動 2",
+    "Action 3": "行動 3",
+    "Accepted": "已接受",
+    "Returned": "已退回",
+    "Unreviewed": "未覆核",
+    "Remeasure requested": "待複測",
+    "Review history unavailable": "覆核歷史缺失",
+    "open": "待處置",
+    "in_progress": "處置中",
+    "acknowledged": "已確認",
+    "closed": "已結案",
+    "AVAILABLE": "可用",
+    "NOT_CONFIGURED": "準則未配置",
+    "NORMAL": "未超已配置門檻",
+    "SUPERSEDED": "已被取代",
+    "REVERIFY_REQUIRED": "須重新核實",
+    "ACTIVE": "有效",
+    "ground": "地面",
+    "utilities": "管線",
+    "refuseGround": "堆填地面",
+    "Re-evaluated under current threshold rules": "按現行門檻重新評估",
+    "Ground exceedance summaries use the current rules captured in this snapshot. Ground assessment history separates recorded operational and approved evidence from current comparisons. Missing historical evidence stays unknown. Structure and Utility sections retain their captured criteria decisions and explicitly identify unassessed legacy results.": "地面超限摘要採用本快照的現行準則。地面歷史判定分列原操作判定、批准證據和現行比較。缺少歷史證據時標示未知。結構及管線章節保留原準則判定並明示未評估的舊紀錄。",
+    "This report compares Ground readings against the current rules captured in this snapshot. Where available, recorded historical Ground assessments can be viewed in the observation details. Structure and Utility sections retain their captured criteria decisions and explicitly identify unassessed legacy results.": "本報告按快照內的現行準則比較地面讀數。已有的地面歷史判定可於觀測詳情查閱。結構及管線章節保留原判定並明示未評估的舊紀錄。",
+    "Accumulated settlement (mm) = (measured level - initial level) x 1000. Negative values indicate settlement; positive values indicate heave. Threshold severity uses absolute magnitude.": "累積沉降（mm）＝（實測標高－初始標高）× 1000。負值為沉降，正值為隆起。工程門檻按絕對值判定。",
+    "Data-quality findings are separate from engineering severity and do not remove or replace measured observations.": "品質異常與工程級別分開，不刪除或取代實測觀測。",
+    "This report is a review aid. Engineering interpretation and response decisions require an authorised person.": "本報告供覆核參考；工程解讀及處置決定須由獲授權人員作出。",
+    "Missing observations are shown as missing and are never replaced with zero.": "缺測明示為缺測，不以零取代。",
+    "Accumulated settlement values are not summed to calculate total movement.": "不把累積沉降值相加作為總位移。",
+    "Signed values in mm; negative means downward. Differential settlement is B minus A. Utility warnings use the recorded limit revision. No angular distortion assessment is included.": "數值含正負號，單位 mm；負值為向下。差異沉降為 B 減 A。管線預警引用已記錄的準則修訂。本報告不評估角變形。",
+    "Full history includes all selected utility review dates, even outside the ground observation range shown above.": "全期包括全部所選管線覆核日期，包括上述地面觀測期間以外的日期。",
+    "Captured target-pair results. Movement is in mm. Azimuth is clockwise from grid north. Superseded and reverify-required values retain their original source revisions.": "保存的上下靶結果。位移以 mm 表示。方格方位角由方格北順時針量度。已被取代和須重新核實的數值保留原來源版本。",
+    "Full history includes structure survey dates outside the ground observation range.": "全期包括地面觀測期間以外的結構量測日期。",
+    "Preview shows the first {count} rows; the PDF includes the full selected evidence.": "預覽顯示首 {count} 筆；PDF 包含所選的全部證據。",
+    "No Ground observations in scope": "所選範圍無地面觀測",
+    "No observations excluded by review state. Trial decisions are simulated.": "覆核狀態不排除觀測。試用版的決定為模擬。"
+  };
+
+  function translate(locale) {
+    if (locale !== "zh-HK") return label => label;
+    return label => Object.hasOwn(traditional, label) ? traditional[label] : label;
+  }
+  const page = (locale, number, total) => locale === "zh-HK" ? "第 " + number + " 頁，共 " + total + " 頁" : "Page " + number + " of " + total;
+  return { translate, page };
+});
+
+},{}],143:[function(require,module,exports){
 "use strict";
 
 const proj4 = require("proj4");
@@ -28250,6 +29403,48 @@ function automaticLevels(markers, interval) {
   return levels;
 }
 
+function surfaceSelection(state, options, group) {
+  const candidates = latestSettlementMarkers(state, options.date, group);
+  const maxAge = options.maxAgeDays;
+  const limit = maxAge == null || maxAge === "" ? null : Number(maxAge);
+  if (limit !== null && (!/^\d+$/.test(String(maxAge)) || !Number.isSafeInteger(limit))) {
+    throw new Error("Enter the maximum observation age as a whole number of days (zero or more).");
+  }
+  const latestEligible = candidates.reduce((latest, marker) => marker.date > latest ? marker.date : latest, "");
+  const referenceDate = options.date || latestEligible || null;
+  const observationAge = limit === null ? null : {
+    referenceDate, reference: options.date ? "selected through-date" : "latest eligible observation", maximumDays: limit
+  };
+  const stale = new Map();
+  const markers = observationAge ? candidates.flatMap(marker => {
+    const ageDays = (Date.parse(referenceDate) - Date.parse(marker.date)) / 86400000;
+    if (ageDays <= limit) return [{ ...marker, ageDays }];
+    stale.set(marker.id, ageDays);
+    return [];
+  }) : candidates;
+  const includedIds = new Set(markers.map(marker => marker.id));
+  const latest = new Map();
+  for (const record of state.records) {
+    if (options.date && record.date > options.date) continue;
+    if (!latest.has(record.pointId) || record.date > latest.get(record.pointId).date) latest.set(record.pointId, record);
+  }
+  const pointsById = new Map(state.points.map(point => [point.id, point]));
+  const evidence = markers.map(marker => {
+    const point = pointsById.get(marker.id);
+    return { ...marker, status: reachedLevel(state, point, latest.get(marker.id))?.label ||
+      (options.scopeEvidence ? (state.thresholdSettings?.[point.rule] ? "Below configured thresholds" : "Criteria not configured") : "Okay") };
+  });
+  const exclusions = state.points.filter(point => !includedIds.has(point.id)).map(point => ({
+    id: point.id,
+    reason: group !== "all" && point.rule !== group ? "Outside selected group"
+      : stale.has(point.id) ? "Observation " + latest.get(point.id).date + " is " + stale.get(point.id) + " days old (maximum " + limit + ")"
+      : !latest.has(point.id) ? (options.scopeEvidence ? "No eligible observation in the selected scope" : "No observation through cutoff")
+      : !finite(point.baseline) || !finite(latest.get(point.id).reading) ? "Invalid baseline or reading"
+      : "No usable coordinates"
+  }));
+  return { markers, evidence, exclusions, observationAge };
+}
+
 function buildSettlementContours(state, options = {}) {
   for (const name of ["gridSize", "interval", "colorLimit", "surfaceOpacity", "bandWidth"]) {
     if (options[name] != null && (!finite(options[name]) || Number(options[name]) <= 0)) throw new Error(`Invalid contour ${name}.`);
@@ -28258,10 +29453,13 @@ function buildSettlementContours(state, options = {}) {
   if (!MARKER_GROUPS.has(group)) throw new Error("Select a valid settlement marker group.");
   const colorMode = options.colorMode || "fixed";
   if (!new Set(["fixed", "data"]).has(colorMode)) throw new Error("Select a valid contour colour-scale mode.");
-  const markers = latestSettlementMarkers(state, options.date, group);
-  if (markers.length < 3) throw new Error("At least three markers with coordinates and settlement readings are required.");
+  const { markers, evidence, exclusions, observationAge } = surfaceSelection(state, options, group);
+  function unavailable(message) {
+    throw Object.assign(new Error(message), { contourSelection: { markers: evidence, exclusions, observationAge } });
+  }
+  if (markers.length < 3) unavailable("At least three markers with coordinates and settlement readings are required.");
   const hull = convexHull(markers);
-  if (hull.length < 3) throw new Error("Settlement markers must not all be on one line.");
+  if (hull.length < 3) unavailable("Settlement markers must not all be on one line.");
   const gridSize = Math.max(20, Math.min(200, Math.round(Number(options.gridSize) || 70)));
   const interval = Math.max(0.1, Number(options.interval) || 5);
   const observedLimit = Math.max(...markers.map(marker => Math.abs(marker.settlement)));
@@ -28331,24 +29529,6 @@ function buildSettlementContours(state, options = {}) {
   const hullCoordinates = hull.map(marker => hk1980ToWgs84(marker.x, marker.y));
   hullCoordinates.push(hullCoordinates[0]);
   const mode = state.monitoringApproach === "5A" ? "5A" : "3A";
-  const includedIds = new Set(markers.map(marker => marker.id));
-  const latest = new Map();
-  for (const record of state.records) {
-    if (options.date && record.date > options.date) continue;
-    if (!latest.has(record.pointId) || record.date > latest.get(record.pointId).date) latest.set(record.pointId, record);
-  }
-  const pointsById = new Map(state.points.map(point => [point.id, point]));
-  const evidence = markers.map(marker => ({
-    ...marker,
-    status: reachedLevel(state, pointsById.get(marker.id), latest.get(marker.id))?.label || "Okay"
-  }));
-  const exclusions = state.points.filter(point => !includedIds.has(point.id)).map(point => ({
-    id: point.id,
-    reason: group !== "all" && point.rule !== group ? "Outside selected group"
-      : !latest.has(point.id) ? "No observation through cutoff"
-      : !finite(point.baseline) || !finite(latest.get(point.id).reading) ? "Invalid baseline or reading"
-      : "No usable coordinates"
-  }));
   const observationDates = [...new Set(markers.map(marker => marker.date))].sort();
   let background = null;
   if (state.contourDxf) {
@@ -28393,6 +29573,7 @@ function buildSettlementContours(state, options = {}) {
         hk1980: markers.filter(marker => marker.coordinateSource === "hk1980").length,
         convertedFromWGS84: markers.filter(marker => marker.coordinateSource === "wgs84").length
       },
+      ...(observationAge && { observationAge }),
       interpolation: { method: "ordinary-kriging", variogram: kriging.model },
       grid: { rows: gridSize, columns: gridSize, crs: "HK1980", spacingX: dx, spacingY: dy },
       surfaceGrid: { rows: surfaceGridSize, columns: surfaceGridSize, crs: "HK1980", maximum: MAX_SURFACE_GRID_SIZE },
@@ -28404,7 +29585,7 @@ function buildSettlementContours(state, options = {}) {
 
 module.exports = { buildSettlementContours, clipSegmentToPolygon, convexHull, createOrdinaryKrigingInterpolator, latestSettlementMarkers, pointInPolygon, projectMarkerCoordinates, stitchSegments };
 
-},{"./contour-background":128,"./contour-presentation":129,"./monitoring-core":133,"./reminder-email":136,"proj4":125}],138:[function(require,module,exports){
+},{"./contour-background":128,"./contour-presentation":129,"./monitoring-core":138,"./reminder-email":141,"proj4":125}],144:[function(require,module,exports){
 "use strict";
 
 const { createHash } = require('crypto');
@@ -28493,7 +29674,7 @@ function listAssessments(state, input = {}, discloseEvidence = false) {
 
 module.exports = { assessmentFilter, listAssessments };
 
-},{"./engineering-evidence":131,"./monitoring-core":133,"./structure-criteria":139,"./structure-records":141,"crypto":124}],139:[function(require,module,exports){
+},{"./engineering-evidence":131,"./monitoring-core":138,"./structure-criteria":145,"./structure-records":147,"crypto":124}],145:[function(require,module,exports){
 "use strict";
 const { isoDate } = require("./monitoring-core");
 const METHOD = "HK1980_TARGET_PAIR_V1", METRIC = "DERIVED_TARGET_TILT_RATIO";
@@ -28583,7 +29764,7 @@ function publicAssessment(value, disclose) {
 }
 module.exports = { METHOD, METRIC, PRECISION, history, scopeOf, saveCriteria, applicability, assess, publicAssessment };
 
-},{"./monitoring-core":133}],140:[function(require,module,exports){
+},{"./monitoring-core":138}],146:[function(require,module,exports){
 "use strict";
 const { randomUUID } = require('crypto');
 const { listAssessments } = require("./structure-assessments");
@@ -28620,7 +29801,7 @@ function listFollowups(state, disclose = false) {
 }
 module.exports = { followupState, openFollowup, listFollowups };
 
-},{"./alert-followup":127,"./structure-assessments":138,"./structure-criteria":139,"crypto":124}],141:[function(require,module,exports){
+},{"./alert-followup":127,"./structure-assessments":144,"./structure-criteria":145,"crypto":124}],147:[function(require,module,exports){
 "use strict";
 
 const { randomUUID } = require('crypto');
@@ -28803,7 +29984,7 @@ function listRecords(state, discloseEvidence) {
 
 module.exports = { saveStructure, saveConfig, saveObservation, listRecords };
 
-},{"./engineering-evidence":131,"./monitoring-core":133,"./structure-criteria":139,"./structure-uu-calculations":142,"crypto":124,"util":122}],142:[function(require,module,exports){
+},{"./engineering-evidence":131,"./monitoring-core":138,"./structure-criteria":145,"./structure-uu-calculations":148,"crypto":124,"util":122}],148:[function(require,module,exports){
 "use strict";
 
 const { isoDate } = require("./monitoring-core");
@@ -28879,7 +30060,314 @@ function utilityRelativeSlope(segment, a, b) {
 
 module.exports = { gridTilt, utilityRelativeSlope };
 
-},{"./monitoring-core":133}],143:[function(require,module,exports){
+},{"./monitoring-core":138}],149:[function(require,module,exports){
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./monitoring-core"));
+  else root.TrialAnalysisScope = factory(root.MonitoringCore);
+})(typeof globalThis !== "undefined" ? globalThis : this, function (core) {
+  "use strict";
+
+  function normalize(input = {}) {
+    const { from = "", through = "", facility = "", points = null } = input;
+    if ((from && !core.isoDate(from)) || (through && !core.isoDate(through)) ||
+        (from && through && from > through) || typeof from !== "string" || typeof through !== "string") {
+      throw new Error("Use valid dates with From on or before Through.");
+    }
+    if (typeof facility !== "string" ||
+        (points !== null && (!Array.isArray(points) || points.some(id => typeof id !== "string" || !id)))) {
+      throw new Error("Choose a valid facility and monitoring points.");
+    }
+    const version = value => {
+      if (value === "" || value == null) return null;
+      if (!/^\d+$/.test(String(value)) || !Number.isSafeInteger(Number(value)) || Number(value) < 1) {
+        throw new Error("Choose a valid captured criteria version.");
+      }
+      return Number(value);
+    };
+    return { from, through, facility, points: points === null ? null : [...new Set(points)],
+      groundApproval: version(input.groundApproval), structureVersion: version(input.structureVersion),
+      utilityVersion: version(input.utilityVersion) };
+  }
+
+  function pointMatches(point, scope, selected = scope.points === null ? null : new Set(scope.points)) {
+    return Boolean(point && (!scope.facility || point.facility === scope.facility) && (!selected || selected.has(point.id)));
+  }
+
+  function dateMatches(date, scope) {
+    return core.isoDate(date) && (!scope.from || date >= scope.from) && (!scope.through || date <= scope.through);
+  }
+
+  function approvedObservationKeys(state, version) {
+    const history = state.groundHistory;
+    const keys = new Set();
+    for (const link of history?.active ?? []) {
+      const head = history.revisions[link.revisionId - 1];
+      const evidence = head?.assessmentSourceRevision ? history.revisions[head.assessmentSourceRevision - 1] : head;
+      if (evidence?.approvedAssessment?.approvalVersion === version) keys.add(JSON.stringify([link.pointId, link.date]));
+    }
+    return keys;
+  }
+
+  function observations(state, scope) {
+    const selected = scope.points === null ? null : new Set(scope.points);
+    const points = state.points.filter(point => pointMatches(point, scope, selected));
+    const ids = new Set(points.map(point => point.id));
+    const approved = scope.groundApproval === null ? null : approvedObservationKeys(state, scope.groundApproval);
+    const records = state.records.filter(row => ids.has(row.pointId) && dateMatches(row.date, scope) &&
+      (!approved || approved.has(JSON.stringify([row.pointId, row.date]))));
+    return { points, records };
+  }
+
+  function linkedMarkerMatches(ids, scope, byId) {
+    if (!scope.facility && scope.points === null) return true;
+    return ids.some(id => pointMatches(byId.get(id), scope));
+  }
+  function structureMatches(row, scope, byId) {
+    return dateMatches(row.observation?.date, scope) && linkedMarkerMatches(row.structure?.markerIds ?? [], scope, byId) &&
+      (scope.structureVersion === null || row.criteriaAssessment?.criterion?.version === scope.structureVersion);
+  }
+  function utilityVersion(row) {
+    return row.settlementAssessment?.historical?.version ?? row.settlementAssessment?.version ?? null;
+  }
+  function utilityMatches(row, scope, byId) {
+    return dateMatches(row.date, scope) && linkedMarkerMatches([row.aId, row.bId], scope, byId) &&
+      (scope.utilityVersion === null || utilityVersion(row) === scope.utilityVersion);
+  }
+
+  function thresholdReferences(levels, limits, direction = "settlement") {
+    const directions = direction === "both" ? [-1, 1] : direction === "heave" ? [1] : [-1];
+    return levels.flatMap((level, index) => {
+      const limit = limits?.[level.key];
+      if (!core.finiteNumber(limit) || Number(limit) <= 0) return [];
+      return directions.map(sign => ({ index, key: level.key, label: level.label, value: sign * Number(limit),
+        text: level.label + (sign < 0 ? " −" : " +") + Number(limit) + " mm", direction: sign < 0 ? "settlement" : "heave" }));
+    });
+  }
+
+  return { normalize, dateMatches, observations, structureMatches, utilityMatches, utilityVersion, thresholdReferences };
+});
+
+},{"./monitoring-core":138}],150:[function(require,module,exports){
+"use strict";
+
+const projectPackage = require("./trial-package");
+const fullBackup = require("./trial-backup");
+
+function createBackupSession({ core, read, replace, getGuard, requireAdmin, download, makeToken }) {
+  let generation = 0, candidate, recovery;
+  const assertCurrent = guard => {
+    if (guard.generation !== generation || guard.state !== getGuard()) {
+      throw new Error("Project, data, reports, role or a newer import changed while reading JSON or reviewing its preview. Import cancelled; current projects and drafts are unchanged. Select the file again when ready.");
+    }
+  };
+  return {
+    capacity() { requireAdmin(); return fullBackup.capacity(read(), core); },
+    exportComplete() {
+      requireAdmin();
+      const { text, bytes } = fullBackup.encode(read(), core);
+      download(text, "cw-complete-trial-backup.json", "application/json");
+      return bytes;
+    },
+    exportRecovery() {
+      requireAdmin();
+      if (!recovery) throw new Error("No recovery copy is held in this session.");
+      download(recovery.text, "cw-pre-replacement-recovery.json", "application/json");
+      return recovery.bytes;
+    },
+    hasRecovery: () => Boolean(recovery),
+    async preview(file, complete, beforePresent = () => {}) {
+      requireAdmin();
+      const guard = { generation: ++generation, state: getGuard() };
+      candidate = undefined;
+      if (!file) throw new Error("Choose a Trial backup file.");
+      const codec = complete ? fullBackup : projectPackage;
+      codec.checkSize(file.size);
+      const text = await file.text();
+      assertCurrent(guard);
+      const data = codec.decode(text, core);
+      const incoming = complete ? data : { projectId: data.projectId, projects: data.projects, reports: [] };
+      beforePresent();
+      assertCurrent(guard);
+      const token = makeToken();
+      const details = fullBackup.compare(read(), incoming);
+      candidate = { token, guard, incoming };
+      return { token, complete, fileBytes: file.size, maximumBytes: codec.MAX_BYTES, ...details };
+    },
+    apply(token, beforeApply = () => {}) {
+      requireAdmin();
+      if (!candidate || candidate.token !== token) throw new Error("This preview is no longer active. Choose the file again.");
+      const { guard, incoming } = candidate;
+      assertCurrent(guard);
+      beforeApply();
+      assertCurrent(guard);
+      const undo = fullBackup.encode(read(), core);
+      replace(incoming);
+      recovery = undo;
+      candidate = undefined;
+      generation++;
+      return undo.bytes;
+    },
+    cancel() { candidate = undefined; generation++; }
+  };
+}
+
+module.exports = { createBackupSession };
+
+},{"./trial-backup":151,"./trial-package":155}],151:[function(require,module,exports){
+(function (Buffer){(function (){
+"use strict";
+
+const { createHash } = require("crypto");
+const projectPackage = require("./trial-package");
+
+const SCHEMA = "cw-browser-trial-backup-1";
+const MAX_BYTES = 64 * 1024 * 1024;
+const validId = value => typeof value === "string" && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(value);
+const timestamp = value => typeof value === "string" && Number.isFinite(Date.parse(value));
+const sha256 = value => createHash("sha256").update(value).digest("hex");
+const hash = value => sha256(JSON.stringify(value));
+const size = value => new Blob([value]).size;
+
+function checkSize(bytes) {
+  if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > MAX_BYTES) {
+    throw new Error("Complete backup exceeds the 64 MiB transfer capacity. Nothing was omitted or replaced.");
+  }
+}
+
+function capturePdf(value) {
+  const bytes = Buffer.from(value);
+  if (bytes.length > MAX_BYTES || bytes.subarray(0, 5).toString() !== "%PDF-" ||
+    !bytes.subarray(-32).toString().trimEnd().endsWith("%%EOF")) throw new Error("Invalid or oversized original report PDF.");
+  return { data: bytes.toString("base64"), digest: sha256(bytes) };
+}
+
+function pdfBytes(pdf) {
+  if (!pdf || typeof pdf.data !== "string" || pdf.data.length > MAX_BYTES ||
+    pdf.data.length % 4 !== 0 || /[^A-Za-z0-9+/=]/u.test(pdf.data)) throw new Error("Invalid original report PDF encoding.");
+  const bytes = Buffer.from(pdf.data, "base64");
+  const checked = capturePdf(bytes);
+  if (checked.data !== pdf.data || checked.digest !== pdf.digest) throw new Error("Original report PDF digest or encoding mismatch.");
+  return bytes;
+}
+
+function attachments(project) {
+  return [project.followupEvents, project.structureUu?.structureFollowups, project.structureUu?.utilityFollowups]
+    .flatMap(events => (events || []).flatMap(event => event.evidenceFiles || []));
+}
+
+function validateAttachments(project) {
+  for (const file of attachments(project)) {
+    const match = typeof file.localDataUrl === "string" && file.localDataUrl.match(/^data:(application\/pdf|image\/png|image\/jpeg);base64,([A-Za-z0-9+/]+={0,2})$/u);
+    if (!match || match[1] !== file.mimeType) throw new Error("Complete backup requires the bytes of every follow-up attachment.");
+    const bytes = Buffer.from(match[2], "base64");
+    const valid = file.mimeType === "application/pdf" ? bytes.subarray(0, 5).toString() === "%PDF-"
+      : file.mimeType === "image/png" ? bytes.subarray(0, 8).toString("hex") === "89504e470d0a1a0a"
+      : bytes.length >= 4 && bytes.subarray(0, 2).toString("hex") === "ffd8" && bytes.subarray(-2).toString("hex") === "ffd9";
+    if (!valid || bytes.length !== file.size || bytes.length > 8 * 1024 * 1024 || bytes.toString("base64") !== match[2]) {
+      throw new Error("Follow-up attachment bytes do not match the recorded file.");
+    }
+  }
+}
+
+function validate(data, core) {
+  if (!data || !Array.isArray(data.reports)) throw new Error("Complete backup needs a report inventory.");
+  projectPackage.validate({ schema: "cw-browser-trial-1", projectId: data.projectId, projects: data.projects }, core);
+  const projects = new Set(data.projects.map(([id, project]) => { validateAttachments(project); return id; }));
+  const ids = new Set();
+  for (const row of data.reports) {
+    if (!Array.isArray(row) || row.length !== 2 || !validId(row[0]) || ids.has(row[0])) throw new Error("Invalid or duplicate report identity.");
+    const [id, { projectId, snapshot, pdf } = {}] = row;
+    if (!projects.has(projectId)) throw new Error("Report project is missing from the package.");
+    const prefix = "browser-" + projectId.replaceAll('"', "") + "-";
+    if (!snapshot || snapshot.schemaVersion !== 1 || !timestamp(snapshot.generatedAt) ||
+      typeof snapshot.layout?.title !== "string" || typeof snapshot.outputLanguage !== "string" ||
+      typeof snapshot.projectName !== "string" || typeof snapshot.sourceRevision !== "string" ||
+      !snapshot.sourceRevision.startsWith(prefix) || !/^\d+$/.test(snapshot.sourceRevision.slice(prefix.length)) ||
+      (snapshot.snapshotId != null && snapshot.snapshotId !== id) ||
+      (snapshot.pdfUrl != null && snapshot.pdfUrl !== "/api/monitoring-reports/" + id + ".pdf")) {
+      throw new Error("Invalid report snapshot identity or project source.");
+    }
+    const { snapshotHash, snapshotId, pdfUrl, ...content } = snapshot;
+    if (hash(content) !== snapshotHash) throw new Error("Report snapshot digest mismatch.");
+    if (pdf !== null) pdfBytes(pdf);
+    ids.add(id);
+  }
+  return data;
+}
+
+function representation(data) {
+  const payload = JSON.stringify(data);
+  if (typeof payload !== "string") throw new Error("Complete backup needs a data payload.");
+  const digest = sha256(payload);
+  const text = '{"schema":"' + SCHEMA + '","data":' + payload + ',"digest":"' + digest + '"}';
+  return { text, bytes: size(text), digest };
+}
+
+function encode(data, core) {
+  const { text, bytes } = representation(data);
+  checkSize(bytes);
+  validate(data, core);
+  return { text, bytes };
+}
+
+function decode(text, core) {
+  checkSize(size(text));
+  let parsed;
+  try { parsed = JSON.parse(text); } catch { throw new Error("Choose a valid complete Trial backup file."); }
+  if (parsed?.schema !== SCHEMA) throw new Error("Choose a supported complete Trial backup. Project JSON uses the separate import control.");
+  const normalized = representation(parsed.data);
+  checkSize(normalized.bytes);
+  if (normalized.digest !== parsed.digest) throw new Error("Complete backup digest mismatch.");
+  return validate(parsed.data, core);
+}
+
+function summary(data) {
+  return data.projects.reduce((counts, [, project]) => {
+    counts.points += project.points.length;
+    counts.observations += project.records.length;
+    counts.revisions += project.groundHistory?.revisions?.length ?? 0;
+    counts.layouts += project.layoutPlans?.length ?? 0;
+    counts.attachments += attachments(project).length;
+    return counts;
+  }, { projects: data.projects.length, points: 0, observations: 0, revisions: 0, layouts: 0, attachments: 0,
+    reports: data.reports.length, pdfs: data.reports.filter(([, report]) => report.pdf !== null).length });
+}
+
+function capacity(data, core) {
+  const { bytes } = representation(data);
+  const fits = bytes <= MAX_BYTES;
+  if (fits) validate(data, core);
+  return { bytes, maximumBytes: MAX_BYTES, fits, summary: summary(data) };
+}
+
+function reportInventory(data) {
+  const inventory = new Map();
+  for (const [id, entry] of data.reports) {
+    if (!inventory.has(entry.projectId)) inventory.set(entry.projectId, []);
+    inventory.get(entry.projectId).push([id, entry.snapshot.snapshotHash, entry.pdf?.digest ?? null]);
+  }
+  for (const entries of inventory.values()) entries.sort(([a], [b]) => a.localeCompare(b));
+  return inventory;
+}
+
+function compare(before, after) {
+  const current = new Map(before.projects), incoming = new Map(after.projects);
+  const oldReports = reportInventory(before), newReports = reportInventory(after);
+  const projects = [...new Set([...current.keys(), ...incoming.keys()])].map(id => {
+    const old = current.get(id), next = incoming.get(id);
+    return { id, name: (next ?? old).projectName || id,
+      status: !old ? "Added" : !next ? "Removed" : hash(old) === hash(next) &&
+        hash(oldReports.get(id) ?? []) === hash(newReports.get(id) ?? []) ? "Unchanged" : "Changed" };
+  });
+  const active = (data, states) => states.get(data.projectId).projectName || data.projectId;
+  return { before: summary(before), after: summary(after), projects,
+    activeBefore: active(before, current), activeAfter: active(after, incoming) };
+}
+
+module.exports = { MAX_BYTES, checkSize, encode, decode, summary, capacity, compare, capturePdf, pdfBytes };
+
+}).call(this)}).call(this,require("buffer").Buffer)
+},{"./trial-package":155,"buffer":8,"crypto":124}],152:[function(require,module,exports){
 (function (Buffer){(function (){
 const path=require('path');
 function validateFollowupEvidence(payload) {
@@ -28900,7 +30388,7 @@ function validateFollowupEvidence(payload) {
 
 module.exports=validateFollowupEvidence;
 }).call(this)}).call(this,require("buffer").Buffer)
-},{"buffer":8,"path":70}],144:[function(require,module,exports){
+},{"buffer":8,"path":70}],153:[function(require,module,exports){
 module.exports={
   "projectName": "VC-04 Measured Workflow Pilot — Synthetic Data",
   "monitoringApproach": "3A",
@@ -28939,7 +30427,230 @@ module.exports={
   "activeLayoutPlanId": ""
 }
 
-},{}],145:[function(require,module,exports){
+},{}],154:[function(require,module,exports){
+"use strict";
+
+const { buildReminderEntries } = require("./reminder-email");
+const { capabilitiesFor } = require("./access-control");
+const { isoDate } = require("./monitoring-core");
+
+const HOUR_MS = 3600000;
+const activities = new Set(["phone", "receipt"]);
+const current = state => state.trialNotifications ?? [];
+const timestamp = value => typeof value === "string" && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+const allowedHours = hours => Number.isInteger(hours) && hours >= 1 && hours <= 8760;
+const deadline = (at, hours) => hours == null ? null : new Date(Date.parse(at) + hours * HOUR_MS).toISOString();
+const hasReceipt = notice => notice.activity.some(entry => entry.type === "receipt");
+const overdue = (notice, at) => notice.dueAt != null && new Date(at).getTime() > Date.parse(notice.dueAt) && !hasReceipt(notice);
+const problem = (status, message) => Object.assign(new Error(message), { status });
+
+function configure(state, hours) {
+  if (hours !== null && !allowedHours(hours)) throw new Error("Set a follow-up deadline in whole hours from 1 to 8760, or clear it.");
+  return { ...state, trialNotificationHours: hours };
+}
+
+function capture(state, candidates, at) {
+  const notices = current(state);
+  const entries = buildReminderEntries(state, candidates, notices);
+  if (!entries.length) return state;
+  const eventsBySource = new Map();
+  for (const event of state.followupEvents ?? []) {
+    for (const observed of event.observations) {
+      eventsBySource.set(JSON.stringify([event.pointId, observed.recordDate]), { event, observed });
+    }
+  }
+  const additions = [];
+  for (const entry of entries) {
+    const found = eventsBySource.get(JSON.stringify([entry.pointId, entry.monitoringDate]));
+    if (!found) continue;
+    const { event, observed } = found;
+    const hours = state.trialNotificationHours ?? null;
+    const { id, deduplicationKey, ruleId, contactId, recipientName, projectName, pointId, settlement, monitoringDate, thresholdLevel, subject, message } = entry;
+    additions.push({ id, deduplicationKey, ruleId: String(ruleId), contactId, recipientName, projectName, pointId, settlement, monitoringDate,
+      thresholdLevel, subject, message, eventId: event.id, observationRevisionId: observed.groundSource?.revisionId ?? null,
+      createdAt: at, hours, dueAt: deadline(at, hours), delivery: "not_sent", activity: [] });
+  }
+  return additions.length ? { ...state, trialNotifications: [...notices, ...additions] } : state;
+}
+
+function record(state, input, role, at) {
+  if (!capabilitiesFor(role).includes("reminder:manage")) throw problem(403, "This simulated role cannot record notification activity.");
+  const notices = current(state);
+  const notice = notices.find(item => item.id === input.id);
+  if (!notice) throw problem(404, "The notification is unavailable in the selected project.");
+  if (!activities.has(input.type)) throw problem(422, "Choose a phone follow-up or simulated receipt.");
+  if (input.type === "receipt" && hasReceipt(notice)) throw problem(409, "A simulated receipt has already been recorded.");
+  const reason = typeof input.reason === "string" ? input.reason.trim() : "";
+  if (!reason || reason.length > 2000) throw problem(422, "Enter a reason or telephone note of up to 2000 characters.");
+  if (!timestamp(at) || at < (notice.activity.at(-1)?.at ?? notice.createdAt)) {
+    throw problem(422, "The activity time precedes the existing notification history.");
+  }
+  const changed = { ...notice, activity: [...notice.activity, { type: input.type, reason, role, at }] };
+  return { ...state, trialNotifications: notices.map(item => item.id === notice.id ? changed : item) };
+}
+
+function summary(state, at = new Date()) {
+  const notices = current(state);
+  const configured = state.trialNotificationHours != null;
+  const pastDeadlines = notices.some(item => item.dueAt != null);
+  return { configured, overdue: configured || pastDeadlines ? notices.filter(item => overdue(item, at)).length : null };
+}
+
+function list(state, { at = new Date(), privileged = false, eventId, overdueOnly = false } = {}) {
+  const references = new Map((state.followupEvents ?? []).map(event => [event.id, event.reference]));
+  return current(state).filter(item => (!eventId || item.eventId === eventId) && (!overdueOnly || overdue(item, at))).map(item => {
+    const { id, eventId, pointId, monitoringDate, createdAt, dueAt, delivery, recipientName, activity, subject, message, observationRevisionId } = item;
+    return { id, eventId, eventReference: references.get(eventId) ?? eventId, pointId, monitoringDate, createdAt, dueAt, delivery,
+      observationRevisionId, received: hasReceipt(item), overdue: overdue(item, at),
+      ...(privileged ? { recipientName, activity, subject, message } : {}) };
+  });
+}
+
+function validate(state) {
+  const hours = state.trialNotificationHours;
+  if (Object.hasOwn(state, "trialNotificationHours") && hours !== null && !allowedHours(hours)) {
+    throw new Error("Invalid trial notification policy.");
+  }
+  if (!Object.hasOwn(state, "trialNotifications")) return;
+  const notices = state.trialNotifications;
+  const events = new Map((state.followupEvents ?? []).map(event => [event.id, event]));
+  const ids = new Set(), keys = new Set();
+  const invalid = () => { throw new Error("Invalid trial notification: check source, dates, delivery and activity."); };
+  if (!Array.isArray(notices)) invalid();
+  for (const notice of notices) {
+    if (!notice || !["id", "deduplicationKey", "recipientName", "subject", "message", "projectName", "ruleId", "contactId"].every(key => typeof notice[key] === "string" && notice[key].trim())
+        || ids.has(notice.id) || keys.has(notice.deduplicationKey) || notice.delivery !== "not_sent" || !Number.isFinite(notice.settlement)
+        || !isoDate(notice.monitoringDate) || !timestamp(notice.createdAt) || (notice.hours !== null && !allowedHours(notice.hours))
+        || notice.dueAt !== deadline(notice.createdAt, notice.hours) || !Array.isArray(notice.activity)) invalid();
+    const event = events.get(notice.eventId);
+    if (!event || event.pointId !== notice.pointId || !event.observations.some(row => row.recordDate === notice.monitoringDate)) invalid();
+    if (notice.observationRevisionId !== null) {
+      const revision = state.groundHistory?.revisions[notice.observationRevisionId - 1];
+      if (!Number.isSafeInteger(notice.observationRevisionId) || revision?.observation.pointId !== notice.pointId
+          || revision?.observation.date !== notice.monitoringDate || revision?.assessment?.settlementMm !== notice.settlement) invalid();
+    }
+    let latest = notice.createdAt, received = false;
+    for (const item of notice.activity) {
+      if (!item || !activities.has(item.type) || !["project_staff", "admin"].includes(item.role)
+          || typeof item.reason !== "string" || !item.reason.trim() || item.reason.length > 2000
+          || !timestamp(item.at) || item.at < latest || (received && item.type === "receipt")) invalid();
+      latest = item.at;
+      received ||= item.type === "receipt";
+    }
+    ids.add(notice.id);
+    keys.add(notice.deduplicationKey);
+  }
+}
+
+module.exports = { configure, capture, record, summary, list, validate };
+
+},{"./access-control":126,"./monitoring-core":138,"./reminder-email":141}],155:[function(require,module,exports){
+"use strict";
+
+const groundHistory = require("./ground-history");
+const groundReviews = require("./ground-observation-review");
+const groundEventSource = require("./ground-event-source");
+const groundWorkbench = require("./ground-workbench");
+const notifications = require("./trial-notification-tracking");
+
+// Project-data interchange only. Report snapshots and generated PDF files live separately.
+const MAX_BYTES = 16 * 1024 * 1024;
+const NOTICE = "Project JSON excludes report snapshots and PDF files. Download reports separately before refreshing. This is not a complete backup. Export and import are limited to 16 MiB and 20 projects; imported data must also fit the export format.";
+function checkSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0 || bytes > MAX_BYTES) throw new Error("Trial JSON exceeds the 16 MiB import/export limit. No data was changed or omitted. Keep this session open and download required reports separately.");
+}
+function validate(data, core) {
+  if (!data || data.schema !== "cw-browser-trial-1" || !Array.isArray(data.projects) || !data.projects.length || data.projects.length > 20) throw new Error("Choose a supported trial JSON package containing 1 to 20 projects.");
+  const ids = new Set();
+  for (const row of data.projects) {
+    if (!Array.isArray(row) || row.length !== 2 || typeof row[0] !== "string" || !row[0] || row[0].length > 160 || ids.has(row[0])) throw new Error("Invalid or duplicate project entry in trial JSON.");
+    core.validateState(row[1]);
+    groundHistory.validate(row[1]);
+    groundReviews.validate(row[1]);
+    groundEventSource.validate(row[1]);
+    groundWorkbench.validate(row[1]);
+    notifications.validate(row[1]);
+    for (const plan of row[1].layoutPlans || []) {
+      if (typeof plan.fileUrl !== "string" || !plan.fileUrl.startsWith("data:image/")) throw new Error("Trial packages require embedded PNG/JPEG layout images; server file references are not portable.");
+      core.imageDimensionsFromDataUrl(plan.fileUrl);
+    }
+    ids.add(row[0]);
+  }
+  if (!ids.has(data.projectId)) throw new Error("Selected project is missing from trial JSON.");
+  return data;
+}
+function representation(data) {
+  const text = JSON.stringify(data, null, 2), bytes = new Blob([text]).size;
+  return { text, bytes };
+}
+function encode(data, core) {
+  const encoded = representation(data);
+  checkSize(encoded.bytes);
+  validate(data, core);
+  return encoded;
+}
+function decode(text, core) {
+  checkSize(new Blob([text]).size);
+  let data;
+  try { data = JSON.parse(text); } catch { throw new Error("Choose a valid JSON file; its contents could not be read."); }
+  if (representation(data).bytes > MAX_BYTES) throw new Error("The normalized export representation exceeds the 16 MiB transfer limit. Import cancelled; your current projects are unchanged. No data was omitted.");
+  return validate(data, core);
+}
+module.exports = { MAX_BYTES, NOTICE, checkSize, validate, encode, decode };
+
+},{"./ground-event-source":134,"./ground-history":135,"./ground-observation-review":136,"./ground-workbench":137,"./trial-notification-tracking":154}],156:[function(require,module,exports){
+'use strict';
+// Browser Trial workflow restrictions only; not trusted authentication or DRM.
+const access=require('./access-control'),{isDeepStrictEqual}=require('util');
+function forbidden(message='Administrator configuration access is required in this trial.') { const e=new Error(message);e.status=403;e.code='TRIAL_FORBIDDEN';throw e; }
+function capabilities(role){return [...access.capabilitiesFor(role).filter(c=>c!=='user:manage'),...(role==='admin'?['trial:configure']:[])];}
+function requireCapability(role,capability){if(!capabilities(role).includes(capability))forbidden();}
+const configRoutes=new Set(['/api/projects','/api/structures','/api/structure-configs','/api/structure-criteria','/api/utility-assets','/api/utility-segments','/api/utility-criteria','/api/layout-files','/api/ground-criteria-approvals','/api/ground-schedules','/api/trial-notification-policy']);
+function assertRequest(role,route,method,body={}){
+ if(route==='/api/ground-observation-reviews'&&['GET','POST'].includes(method)){requireCapability(role,'project:edit');return;}
+ if(route==='/api/trial-notification-policy'&&method==='GET'){requireCapability(role,'trial:configure');return;}
+ if(route==='/api/trial-notifications'&&['GET','POST'].includes(method)){requireCapability(role,method==='POST'?'reminder:manage':'project:read');return;}
+ if(method==='GET')return;
+ if(route==='/api/logout'||(route==='/api/projects/select'&&method==='POST'))return;
+ if(['/api/structure-criteria-applicability','/api/utility-criteria-applicability'].includes(route)&&method==='POST'){requireCapability(role,'project:read');return;}
+ if(configRoutes.has(route)){requireCapability(role,'trial:configure');return;}
+ if(route==='/api/structure-observations'&&method==='POST'){requireCapability(role,body.kind==='current'?'project:edit':'trial:configure');return;}
+ if((route==='/api/state'&&method==='PUT')||(route==='/api/ground-observation-preview'&&method==='POST')){requireCapability(role,'project:edit');return;}
+ if(route==='/api/utility-reviews'&&method==='POST'){requireCapability(role,'project:edit');return;}
+ if(route==='/api/structure-tilt-preview'){requireCapability(role,'project:edit');return;}
+ if(route==='/api/monitoring-reports'){requireCapability(role,'report:export');return;}
+ if(/^\/api\/(?:structure-followups|utility-followups|followups)(?:\/[^/]+(?:\/evidence)?)?$/.test(route)){
+  requireCapability(role,method==='PATCH'?'followup:view':'reminder:manage');return;
+ }
+ if(route==='/api/reminders/retry'){requireCapability(role,'trial:configure');return;}
+ forbidden('This local trial operation is not authorized. No data changed.');
+}
+function comparable(source){
+ const s=structuredClone(source);
+ const defaults={mapImage:'',layoutPlans:[],layoutPoints:[],activeLayoutPlanId:'',reminderLog:[],followupEvents:[],contourDxf:null};
+ for(const [k,v]of Object.entries(defaults))if(s[k]===undefined)s[k]=v;
+ s.points=(s.points||[]).map(p=>({...p,baseline:Number(p.baseline),facility:String(p.facility||''),type:String(p.type||''),...Object.fromEntries(['easting','northing','lat','lng'].filter(k=>p[k]!==null&&p[k]!==''&&Number.isFinite(Number(p[k]))&&p[k]!==undefined).map(k=>[k,Number(p[k])]))}));
+ delete s.records;
+ for(const k of Object.keys(s))if(k.startsWith('_'))delete s[k];
+ return s;
+}
+function projectMetadata(input){
+ const name=typeof input.name==='string'?input.name.trim():'',code=typeof input.code==='string'?input.code.trim():'',description=typeof input.description==='string'?input.description.trim():'';
+ if(!name||name.length>160||code.length>40||description.length>500||/[\u0000-\u001f\u007f]/.test(name+code+description))throw Object.assign(new Error('Supply a project name (maximum 160 characters), code (40) and description (500), without control characters.'),{status:422});
+ return {name,code,description};
+}
+function assertStateWrite(role,previous,next){
+ requireCapability(role,'project:edit');
+ if(Object.hasOwn(next,'groundHistory')||Object.hasOwn(next,'groundCriteriaApprovals')||Object.hasOwn(next,'groundObservationReviews')||Object.hasOwn(next,'groundSchedules')||Object.hasOwn(next,'trialNotifications')||Object.hasOwn(next,'trialNotificationHours'))forbidden('Protected Ground evidence, schedules and notification tracking cannot be replaced by a state write.');
+ if(role==='admin'){if(previous.projectName!==next.projectName||!isDeepStrictEqual(previous.browserProjectMeta,next.browserProjectMeta))projectMetadata({...next.browserProjectMeta,name:next.projectName});return;}
+ const permitted=new Set(['_reminderCandidates','_qualityConfirmation','_qualityReview','_groundPreview']);
+ if(Array.isArray(next._csvFacilityCorrections)&&next._csvFacilityCorrections.length===0)permitted.add('_csvFacilityCorrections');
+ for(const [k,v]of Object.entries(next))if(k.startsWith('_')&&!permitted.has(k)&&v!=null)forbidden('Point/configuration changes require Administrator access; observations were not saved.');
+ if(!isDeepStrictEqual(comparable(previous),comparable(next)))forbidden('Configuration or protected history changed. Ask an Administrator; observations were not saved.');
+}
+module.exports={capabilities,requireCapability,assertRequest,assertStateWrite,projectMetadata};
+
+},{"./access-control":126,"util":122}],157:[function(require,module,exports){
 "use strict";
 
 const { randomUUID } = require('crypto');
@@ -29063,7 +30774,7 @@ function resolveReview(state, input) {
 
 module.exports = { saveAsset, saveSegment, listRegister, resolveReview };
 
-},{"crypto":124}],146:[function(require,module,exports){
+},{"crypto":124}],158:[function(require,module,exports){
 "use strict";
 
 const { randomUUID } = require('crypto');
@@ -29256,7 +30967,7 @@ function listFollowups(state) {
 
 module.exports = { addReview, listReviews, followupState, openFollowup, listFollowups };
 
-},{"./alert-followup":127,"./engineering-evidence":131,"./monitoring-core":133,"./structure-uu-calculations":142,"./utility-register":145,"./utility-settlement-limits":148,"crypto":124,"util":122}],147:[function(require,module,exports){
+},{"./alert-followup":127,"./engineering-evidence":131,"./monitoring-core":138,"./structure-uu-calculations":148,"./utility-register":157,"./utility-settlement-limits":160,"crypto":124,"util":122}],159:[function(require,module,exports){
 (function(root, factory) {
   const api = factory(typeof module === "object" && module.exports ? require("./monitoring-core") : root.MonitoringCore);
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -29362,7 +31073,7 @@ module.exports = { addReview, listReviews, followupState, openFollowup, listFoll
   return { context, build };
 });
 
-},{"./monitoring-core":133}],148:[function(require,module,exports){
+},{"./monitoring-core":138}],160:[function(require,module,exports){
 "use strict";
 
 const { isoDate } = require("./monitoring-core");
@@ -29481,4 +31192,4 @@ function assess(state, entry) {
 }
 module.exports = { history, saveLimits, assess, scopeOf, applicability };
 
-},{"./engineering-evidence":131,"./monitoring-core":133,"./utility-register":145}]},{},[132]);
+},{"./engineering-evidence":131,"./monitoring-core":138,"./utility-register":157}]},{},[132]);

@@ -15,13 +15,18 @@ const fs = require('fs'), assert = require('assert/strict');
     await p.waitForFunction(() => document.querySelector('#dashboardContourSummary').textContent.startsWith('4 eligible input markers'));
     const initial = await p.evaluate(() => BrowserTrial.getState());
     // Normal CSV preview: invalid and mutually conflicting input cannot be saved.
-    await p.locator('[data-view="records"]').click();
+    await require('./trial-test-navigation')(p, 'records');
     for (const rows of ['PSM01,not-a-date,9.9\n', 'PSM01,2026-09-02,9.9\nPSM01,2026-09-02,9.8\n']) {
       await p.locator('#recordCsvInput').setInputFiles({ name: 'synthetic-invalid.csv', mimeType: 'text/csv', buffer: Buffer.from('point,date,level\n' + rows) });
       await p.locator('dialog[open]').waitFor();
       assert.equal(await p.getByRole('button', { name: 'Confirm and save observations', exact: true }).isDisabled(), true);
       await p.getByRole('button', { name: 'Cancel preview', exact: true }).click();
       assert.deepEqual(await p.evaluate(() => BrowserTrial.getState()), initial);
+      // The failed CSV remains an explicit recoverable draft until the user discards it.
+      assert.equal(await p.locator('#recordInputCopy').inputValue(), 'point,date,level\n' + rows);
+      p.once('dialog', dialog => dialog.accept());
+      await p.locator('#discardRecordInputCopy').click();
+      assert.equal(await p.locator('#recordInputCopy').inputValue(), '');
     }
     const row = initial.records[0];
     await p.locator('#recordCsvInput').setInputFiles({ name: 'synthetic-duplicate.csv', mimeType: 'text/csv', buffer: Buffer.from(`point,date,level\n${row.pointId},${row.date},${row.reading}\n`) });
@@ -39,11 +44,11 @@ const fs = require('fs'), assert = require('assert/strict');
     });
     assert.deepEqual(importFailures, [true, true, true, true]);
     // Original point and 5A forms remain real local operations.
-    await p.locator('[data-view="markers"]').click();
+    await require('./trial-test-navigation')(p, 'markers');
     for (const [id, value] of Object.entries({ markerName: 'SYN05', markerFacility: 'Synthetic Zone C', markerEasting: '835100', markerNorthing: '819100', markerDate: '2026-09-01', markerLevel: '10' })) await p.locator('#' + id).fill(value);
     await p.getByRole('button', { name: 'Add monitoring point', exact: true }).click();
     await p.waitForFunction(() => BrowserTrial.getState().points.some(x => x.id === 'SYN05') && !hasUnsavedChanges);
-    await p.locator('[data-view="approach"]').click();
+    await require('./trial-test-navigation')(p, 'approach');
     await p.locator('#approachSelect').selectOption('5A');
     await p.getByRole('button', { name: 'Save approach and thresholds', exact: true }).click();
     await p.waitForFunction(() => BrowserTrial.getState().monitoringApproach === '5A' && !hasUnsavedChanges);

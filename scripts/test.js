@@ -1,4 +1,12 @@
 const { spawn, spawnSync } = require('child_process');
+const fs = require('node:fs'), path = require('node:path');
+fs.mkdirSync('output', { recursive: true });
+for (const suite of ['smoke-trial-shell', 'smoke-trial-backup']) {
+  const result = spawnSync(process.execPath, ['scripts/' + suite + '.js'], {
+    env: { ...process.env, PUBLIC_TRIAL_SITE: path.resolve('site') }, stdio: 'inherit'
+  });
+  if (result.status !== 0) process.exit(result.status || 1);
+}
 const server = spawn(process.execPath, ['scripts/serve.js'], { env: process.env, stdio: ['ignore', 'pipe', 'inherit'] });
 server.stdout.once('data', () => {
   try {

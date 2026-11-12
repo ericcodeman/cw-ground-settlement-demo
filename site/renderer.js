@@ -1,10 +1,30 @@
-(function(){const module={exports:{}};const __dirname='';const process={env:{}};const Buffer={concat:chunks=>{const a=new Uint8Array(chunks.reduce((n,c)=>n+c.length,0));let o=0;for(const c of chunks){a.set(c,o);o+=c.length;}return a;},from:(s)=>Uint8Array.from(atob(s),c=>c.charCodeAt(0))};const require=id=>{if(id==='pdfkit')return window.PDFDocument;if(id==='node:path')return {join:()=> 'font'};if(id==='node:fs')return {existsSync:()=>!!window.proofFont};throw Error(id);};
-"use strict";
+(function () {
+    const module = { exports: {} }, __dirname = "", process = { env: {} };
+    const Buffer = {
+      concat(chunks) {
+        const result = new Uint8Array(chunks.reduce((length, chunk) => length + chunk.length, 0));
+        let offset = 0;
+        for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.length; }
+        return result;
+      },
+      from: value => Uint8Array.from(atob(value), char => char.charCodeAt(0))
+    };
+    const require = id => {
+      if (id === "pdfkit") return window.PDFDocument;
+      if (id === "node:path") return { join: () => "font" };
+      if (id === "node:fs") return { existsSync: font => (font instanceof ArrayBuffer || ArrayBuffer.isView(font)) && font.byteLength > 0 };
+      if (id === "./ground-report-display") return window["GroundReportDisplay"];
+if (id === "./report-labels") return window["MonitoringReportLabels"];
+      throw Error("Unsupported browser report dependency: " + id);
+    };
+    "use strict";
 
 const fs = require("node:fs");
 const path = require("node:path");
 const PDFDocument = require("pdfkit");
 
+const GroundReportDisplay = require("./ground-report-display");
+const ReportLabels = require("./report-labels");
 const FONT_PATH = path.join(__dirname, "assets", "fonts", "NotoSansHK-VF.ttf");
 const COLOURS = ["#1d4ed8", "#dc2626", "#059669", "#9333ea", "#d97706", "#0891b2", "#be123c", "#4f46e5", "#15803d", "#7c2d12"];
 
@@ -14,6 +34,7 @@ function short(value, maximum = 280) { const result = text(value); return result
 
 function renderMonitoringReportPdf(report, options = {}) {
   if (!report || !report.snapshotHash) return Promise.reject(new Error("A validated monitoring report snapshot is required."));
+  const t = ReportLabels.translate(report.locale);
   const fontPath = options.fontPath || process.env.REPORT_FONT_PATH || FONT_PATH;
   if (!fs.existsSync(fontPath)) return Promise.reject(new Error("The report font is unavailable. Restore assets/fonts/NotoSansHK-VF.ttf or set REPORT_FONT_PATH."));
   return new Promise((resolve, reject) => {
@@ -35,13 +56,13 @@ function renderMonitoringReportPdf(report, options = {}) {
     function heading(value, level = 2) {
       ensure(level === 1 ? 54 : 60);
       if (level !== 1) doc.moveDown(0.5);
-      doc.fillColor("#12395d").fontSize(level === 1 ? 22 : 14).text(value, 42, doc.y, { width: contentWidth });
+      doc.fillColor("#12395d").fontSize(level === 1 ? 22 : 14).text(level === 1 ? value : t(value), 42, doc.y, { width: contentWidth });
       if (level !== 1) doc.strokeColor("#d7e0e7").moveTo(42, doc.y + 3).lineTo(553, doc.y + 3).stroke().moveDown(0.5);
       doc.x = 42;
     }
     function paragraph(value, style = {}) {
       ensure(35);
-      doc.fillColor(style.colour || "#263746").fontSize(style.size || 9).text(text(value), 42, doc.y, { width: contentWidth, lineGap: 2, align: style.align || "left" }).moveDown(0.5);
+      doc.fillColor(style.colour || "#263746").fontSize(style.size || 9).text(text(t(value)), 42, doc.y, { width: contentWidth, lineGap: 2, align: style.align || "left" }).moveDown(0.5);
       doc.x = 42;
     }
     function table(columns, rows, empty = "No entries in the selected scope.") {
@@ -52,13 +73,13 @@ function renderMonitoringReportPdf(report, options = {}) {
         let cursor = x;
         doc.fillColor("#e7eef5").rect(x, headerY, contentWidth, 30).fill();
         doc.fillColor("#12395d").fontSize(7.2);
-        for (const column of columns) { doc.text(column.label, cursor + 4, headerY + 5, { width: column.width - 8, height: 21 }); cursor += column.width; }
+        for (const column of columns) { doc.text(t(column.label), cursor + 4, headerY + 5, { width: column.width - 8, height: 21 }); cursor += column.width; }
         doc.y = headerY + 30;
         doc.x = x;
       };
       if (!rows.length) {
         ensure(25);
-        doc.fillColor("#536473").fontSize(8).text(empty, x, doc.y, { width: contentWidth });
+        doc.fillColor("#536473").fontSize(8).text(t(empty), x, doc.y, { width: contentWidth });
         doc.moveDown(0.7);
         doc.x = x;
         return;
@@ -91,13 +112,13 @@ function renderMonitoringReportPdf(report, options = {}) {
         const width = 161, x = 42 + (index % 3) * 175, y = baseY + Math.floor(index / 3) * 55;
         doc.fillColor("#f5f8fa").rect(x, y, width, 45).fill().strokeColor("#cbd5e1").rect(x, y, width, 45).stroke();
         doc.fillColor("#12395d").fontSize(16).text(String(value), x + 8, y + 6, { width: 50, lineBreak: false });
-        doc.fillColor("#536473").fontSize(8).text(label, x + 58, y + 12, { width: 95, lineBreak: false });
+        doc.fillColor("#536473").fontSize(8).text(t(label), x + 58, y + 12, { width: 95, lineBreak: false });
       });
       doc.y = baseY + 116;
       doc.x = 42;
     }
     function chart(group) {
-      addPage(); heading(`Trend chart - ${group.ruleKey}`, 1);
+      addPage(); heading(t("Trend chart") + " - " + t(group.ruleKey), 1);
       const values = group.series.flatMap(series => series.values.map(value => ({ ...value, pointId: series.pointId })));
       if (!values.length) { paragraph("No observations are available for this threshold group in the selected period."); return; }
       const x = 62, y = 145, width = 470, height = 250;
@@ -118,7 +139,7 @@ function renderMonitoringReportPdf(report, options = {}) {
         if (!Number.isFinite(threshold.valueMm)) return;
         const value = -Math.abs(threshold.valueMm), lineY = py(value);
         doc.strokeColor(index % 2 ? "#dc2626" : "#d97706").dash(4, { space: 3 }).moveTo(x, lineY).lineTo(x + width, lineY).stroke().undash();
-        doc.fillColor("#7f1d1d").fontSize(7).text(`${threshold.label} -${number(threshold.valueMm)} mm`, x + width - 100, lineY - 9, { width: 98, align: "right" });
+        doc.fillColor("#7f1d1d").fontSize(7).text(`${t(threshold.label)} -${number(threshold.valueMm)} mm`, x + width - 100, lineY - 9, { width: 98, align: "right" });
       });
       group.series.forEach((series, seriesIndex) => {
         const points = series.values;
@@ -130,7 +151,7 @@ function renderMonitoringReportPdf(report, options = {}) {
         points.forEach(point => doc.fillColor(colour).circle(px(point.date), py(point.settlement), 2).fill());
       });
       doc.fillColor("#536473").fontSize(7).text(new Date(minX).toISOString().slice(0, 10), x, y + height + 7, { width: 90 }).text(new Date(maxX).toISOString().slice(0, 10), x + width - 90, y + height + 7, { width: 90, align: "right" });
-      doc.fillColor("#12395d").fontSize(8).text("Accumulated settlement (mm); negative is settlement", x, y - 18, { width });
+      doc.fillColor("#12395d").fontSize(8).text(t("Accumulated settlement (mm); negative is settlement"), x, y - 18, { width });
       let legendY = y + height + 30;
       group.series.forEach((series, index) => {
         const legendX = x + (index % 4) * 118;
@@ -154,34 +175,42 @@ function renderMonitoringReportPdf(report, options = {}) {
     summaryCards();
     paragraph(report.signConvention, { colour: "#7c2d12" });
     paragraph(report.thresholdAssessment, { colour: "#7c2d12" });
-    report.notices.forEach(item => paragraph("- " + item, { size: 8 }));
+    if (report.observationReviewSummary) paragraph(t("Ground observation review") + ": " + report.observationReviewSummary, { size: 8 });
+    report.notices.forEach(item => paragraph("- " + t(item), { size: 8 }));
+
+    if (report.groundHistory) {
+      heading(GroundReportDisplay.heading);
+      paragraph(GroundReportDisplay.summary(report.groundHistory, t), { size: 8 });
+      table(GroundReportDisplay.labels.map((label, i) => ({ label, width: GroundReportDisplay.widths[i], maximum: 700 })),
+        report.groundHistory.rows.map(row => GroundReportDisplay.cells(row, t)), "No Ground assessment evidence in the selected scope.");
+    }
 
     if (report.layout.sections.includes("summary")) {
       heading("Monitoring point summary");
       table([
         { label: "Point / facility", width: 100 }, { label: "Rule", width: 48 }, { label: "Initial mPD", width: 54 }, { label: "Records", width: 40 }, { label: "Opening date / mm", width: 75 }, { label: "Closing date / mm", width: 75 }, { label: "Period movement mm", width: 58 }, { label: "Peak / worst", width: 61 }
-      ], report.markers.map(item => [`${item.pointId}\n${item.facility}`, item.ruleKey, number(item.baseline, 3), item.observationCount, `${text(item.openingDate)}\n${number(item.openingSettlement)}`, `${text(item.closingDate)}\n${number(item.closingSettlement)}`, number(item.periodMovement), `${text(item.peakDate)} ${number(item.peakSettlement)}\n${item.worstSeverity}`]));
+      ], report.markers.map(item => [`${item.pointId}\n${item.facility}`, t(item.ruleKey), number(item.baseline, 3), item.observationCount, `${text(item.openingDate)}\n${number(item.openingSettlement)}`, `${text(item.closingDate)}\n${number(item.closingSettlement)}`, number(item.periodMovement), `${text(item.peakDate)} ${number(item.peakSettlement)}\n${t(item.worstSeverity)}`]));
     }
     if (report.layout.sections.includes("daily")) {
       heading("Daily observation detail");
-      table([{ label: "Date", width: 62 }, { label: "Point", width: 55 }, { label: "Facility", width: 90 }, { label: "Reading mPD", width: 62 }, { label: "Settlement mm", width: 62 }, { label: "Status", width: 65 }, { label: "Note / source", width: 115 }], report.dailyRecords.map(item => [item.date, item.pointId, item.facility, number(item.reading, 3), number(item.settlement), item.severityLabel, `${item.note}\n${item.sourceKey}`]));
+      table([{ label: "Date", width: 62 }, { label: "Point", width: 55 }, { label: "Facility", width: 90 }, { label: "Reading mPD", width: 62 }, { label: "Settlement mm", width: 62 }, { label: "Status", width: 65 }, { label: "Note / source", width: 115 }], report.dailyRecords.map(item => [item.date, item.pointId, item.facility, number(item.reading, 3), number(item.settlement), t(item.severityLabel), `${item.note}\n${item.sourceKey}${item.observationReview ? "\n" + t("Review") + ": " + t(item.observationReview) : ""}`]));
     }
-    const summaryTable = (title, rows) => { heading(title); table([{ label: "Period", width: 65 }, { label: "Point", width: 55 }, { label: "Records", width: 42 }, { label: "First / last", width: 90 }, { label: "Closing mm", width: 60 }, { label: "Movement mm", width: 60 }, { label: "Peak date / mm", width: 78 }, { label: "Worst status", width: 61 }], rows.map(item => [item.period, item.pointId, item.observations, `${item.firstDate}\n${item.lastDate}`, number(item.closingSettlement), number(item.movementMm), `${item.peakDate}\n${number(item.peakSettlement)}`, item.worstSeverity])); };
+    const summaryTable = (title, rows) => { heading(title); table([{ label: "Period", width: 65 }, { label: "Point", width: 55 }, { label: "Records", width: 42 }, { label: "First / last", width: 90 }, { label: "Closing mm", width: 60 }, { label: "Movement mm", width: 60 }, { label: "Peak date / mm", width: 78 }, { label: "Worst status", width: 61 }], rows.map(item => [item.period, item.pointId, item.observations, `${item.firstDate}\n${item.lastDate}`, number(item.closingSettlement), number(item.movementMm), `${item.peakDate}\n${number(item.peakSettlement)}`, t(item.worstSeverity)])); };
     if (report.layout.sections.includes("weekly")) summaryTable("Weekly summaries", report.weeklySummaries);
     if (report.layout.sections.includes("monthly")) summaryTable("Monthly summaries", report.monthlySummaries);
     if (report.layout.sections.includes("quality")) {
       heading("Data-quality findings"); paragraph(report.qualityAssessment, { size: 8 });
-      table([{ label: "Point", width: 55 }, { label: "Date", width: 65 }, { label: "Finding", width: 90 }, { label: "Evidence", width: 181 }, { label: "Review", width: 120 }], report.qualityFindings.map(item => [item.pointId, item.date, item.code, JSON.stringify({ previousDate: item.previousDate, elapsedDays: item.elapsedDays, changeMm: item.changeMm, rateMmPerDay: item.rateMmPerDay, spreadMm: item.spreadMm, limit: item.limit }), item.reviewStatus === "confirmed" ? `Confirmed by ${item.reviewedBy}\n${text(item.reviewReason)}` : "Needs review"]));
+      table([{ label: "Point", width: 55 }, { label: "Date", width: 65 }, { label: "Finding", width: 90 }, { label: "Evidence", width: 181 }, { label: "Review", width: 120 }], report.qualityFindings.map(item => [item.pointId, item.date, item.code, JSON.stringify({ previousDate: item.previousDate, elapsedDays: item.elapsedDays, changeMm: item.changeMm, rateMmPerDay: item.rateMmPerDay, spreadMm: item.spreadMm, limit: item.limit }), item.reviewStatus === "confirmed" ? `${t("Confirmed by")} ${item.reviewedBy}\n${text(item.reviewReason)}` : t("Needs review")]));
     }
     if (report.layout.sections.includes("exceedances")) {
       heading("Threshold exceedance history"); paragraph(report.thresholdAssessment, { size: 8 });
-      table([{ label: "Date", width: 65 }, { label: "Point", width: 55 }, { label: "Facility", width: 100 }, { label: "Settlement mm", width: 75 }, { label: "Level", width: 70 }, { label: "Rule", width: 55 }, { label: "Assessment", width: 91 }], report.exceedances.map(item => [item.date, item.pointId, item.facility, number(item.settlement), item.severityLabel, item.ruleKey, item.assessmentBasis]));
+      table([{ label: "Date", width: 65 }, { label: "Point", width: 55 }, { label: "Facility", width: 100 }, { label: "Settlement mm", width: 75 }, { label: "Level", width: 70 }, { label: "Rule", width: 55 }, { label: "Assessment", width: 91 }], report.exceedances.map(item => [item.date, item.pointId, item.facility, number(item.settlement), t(item.severityLabel), t(item.ruleKey), t(item.assessmentBasis) + (item.observationReview ? "\n" + t("Review") + ": " + t(item.observationReview) : "")]));
     }
     if (report.layout.sections.includes("followups")) {
       if (!report.followups.length) paragraph("Follow-up actions: No entries in the selected scope.", { size: 8 });
       else {
         heading("Follow-up actions");
-        table([{ label: "Point / event", width: 100 }, { label: "Trigger / latest", width: 75 }, { label: "Severity", width: 60 }, { label: "Workflow", width: 65 }, { label: "Owner / due", width: 90 }, { label: "Action / closure evidence", width: 121 }], report.followups.map(item => [`${item.pointId}\n${item.id}`, `${text(item.triggerDate)}\n${text(item.latestDate)}`, item.eventSeverity, item.status, `${item.ownerName}\n${text(item.dueDate)}`, `${item.actionNote}\n${item.closureEvidence}`]));
+        table([{ label: "Point / event", width: 100 }, { label: "Trigger / latest", width: 75 }, { label: "Severity", width: 60 }, { label: "Workflow", width: 65 }, { label: "Owner / due", width: 90 }, { label: "Action / closure evidence", width: 121 }], report.followups.map(item => [`${item.pointId}\n${item.id}`, `${text(item.triggerDate)}\n${text(item.latestDate)}`, t(item.eventSeverity), t(item.status), `${item.ownerName}\n${text(item.dueDate)}`, `${item.actionNote}\n${item.closureEvidence}`]));
       }
     }
     if (report.layout.sections.includes("utility")) {
@@ -193,12 +222,12 @@ function renderMonitoringReportPdf(report, options = {}) {
         { label: "Source / review ID", width: 127, maximum: 2000 }, { label: "Warning / limits", width: 164, maximum: 1000 }
       ], (report.utilityReviews || []).map(item => [
         `${item.date}\n${item.name}\n${item.aId} / ${item.bId}`,
-        `A: ${number(item.aMm)}\nB: ${number(item.bMm)}\nB minus A: ${number(item.differenceMm)}`,
-        [item.source, item.sourceReference, `Survey: ${item.surveyEpoch}`, `Baseline: ${item.baselineEpoch}`, item.id,
-          item.registerLink && `Utility: ${item.registerLink.assetName} v${item.registerLink.assetVersion}\nSegment: ${item.registerLink.segmentName} v${item.registerLink.segmentVersion}`].filter(Boolean).join("\n"),
-        [item.severity.replaceAll("_", " "), item.historicalSeverity && `Historical only: ${item.historicalSeverity}`,
+        `A: ${number(item.aMm)}\nB: ${number(item.bMm)}\n${t("B minus A")}: ${number(item.differenceMm)}`,
+        [item.source, item.sourceReference, `${t("Survey")}: ${item.surveyEpoch}`, `${t("Baseline")}: ${item.baselineEpoch}`, item.id,
+          item.registerLink && `${t("Utility")}: ${item.registerLink.assetName} v${item.registerLink.assetVersion}\n${t("Segment")}: ${item.registerLink.segmentName} v${item.registerLink.segmentVersion}`].filter(Boolean).join("\n"),
+        [t(item.severity).replaceAll("_", " "), item.historicalSeverity && `${t("Historical only")}: ${t(item.historicalSeverity)}`,
           item.rule && `${item.rule.approach} v${item.rule.version} (${item.rule.effectiveDate})\n${item.rule.document}`,
-          item.rule?.scopeType && `Criteria scope: ${item.rule.scopeType}\n${item.rule.method}\n${item.rule.precisionPolicy}`].filter(Boolean).join("\n")
+          item.rule?.scopeType && `${t("Criteria scope")}: ${item.rule.scopeType}\n${item.rule.method}\n${item.rule.precisionPolicy}`].filter(Boolean).join("\n")
       ]));
       if ((report.utilityReviews || []).some(item => item.evidence)) {
         heading("Utility time, precision and assessment evidence");
@@ -210,8 +239,8 @@ function renderMonitoringReportPdf(report, options = {}) {
         { label: "Review ID", width: 120 }, { label: "Metric / point", width: 151 },
         { label: "Value (mm)", width: 80 }, { label: "Limit (mm)", width: 80 }, { label: "Level", width: 80 }
       ], (report.utilityReviews || []).flatMap(item => item.triggers.map(trigger => [
-        item.id, trigger.pointId ? `Downward settlement\n${trigger.pointId}` : "Absolute A/B difference",
-        number(trigger.valueMm), String(trigger.limitMm), trigger.level
+        item.id, trigger.pointId ? `${t("Downward settlement")}\n${trigger.pointId}` : t("Absolute A/B difference"),
+        number(trigger.valueMm), String(trigger.limitMm), t(trigger.level)
       ])));
     }
     if (report.layout.sections.includes("structure")) {
@@ -226,8 +255,8 @@ function renderMonitoringReportPdf(report, options = {}) {
       ], assessments.map(item => [
         `${item.observation.date}\n${item.structure?.name || "Unavailable"}\nr${item.references.structure.revision}`,
         `${item.configuration?.name || "Unavailable"}\nr${item.references.configuration.revision}`,
-        item.result ? `${number(item.result.displacementMm, 4)} mm\n${item.result.ratio === 0 ? "Level (ratio 0)" : "1:" + number(1 / item.result.ratio, 4)}\n${item.result.gridAzimuthDeg === null ? "No direction" : number(item.result.gridAzimuthDeg, 4) + " deg"}` : "Unavailable",
-        item.sourceStatus.replaceAll("_", " "), `${item.references.observation.id}\nr${item.references.observation.revision}`
+        item.result ? `${number(item.result.displacementMm, 4)} mm\n${item.result.ratio === 0 ? t("Level (ratio 0)") : "1:" + number(1 / item.result.ratio, 4)}\n${item.result.gridAzimuthDeg === null ? t("No direction") : number(item.result.gridAzimuthDeg, 4) + " deg"}` : "Unavailable",
+        t(item.sourceStatus).replaceAll("_", " "), `${item.references.observation.id}\nr${item.references.observation.revision}`
       ]));
       if (report.structureFollowups?.length) {
         heading("Structure warning follow-up (workflow does not clear severity)");
@@ -239,27 +268,27 @@ function renderMonitoringReportPdf(report, options = {}) {
       const reference = value => value.id + " r" + value.revision;
       const survey = value => value ? [
         `${value.date} / ${value.epoch} / EPSG:2326`,
-        `Top E/N: ${value.top.eastingM} / ${value.top.northingM} m`,
-        `Bottom E/N: ${value.bottom.eastingM} / ${value.bottom.northingM} m`,
+        `${t("Top E/N")}: ${value.top.eastingM} / ${value.top.northingM} m`,
+        `${t("Bottom E/N")}: ${value.bottom.eastingM} / ${value.bottom.northingM} m`,
         value.sourceRef, value.actor, value.recordedAt, value.reason
       ].filter(Boolean).join("\n") : "Unavailable";
       table([{ label: "Source", width: 85 }, { label: "Fixed reference", width: 150, maximum: 500 },
         { label: "Captured evidence", width: 276, maximum: 2000 }], assessments.flatMap(item => [
-        ["Assessment", item.id, `Snapshot hash: ${item.snapshotHash}\n${item.sourceIssue || item.sourceStatus}`],
-        ["Structure", reference(item.references.structure), item.structure ? `${item.structure.name}\n${item.structure.structureType}\n${item.structure.sourceRef}` : "Unavailable"],
-        ["Configuration", reference(item.references.configuration), item.configuration ? [
-          item.configuration.name, `Top: ${item.configuration.topId} / Bottom: ${item.configuration.bottomId}`,
-          `Height: ${item.configuration.heightM} m / Baseline epoch: ${item.configuration.baselineEpoch}`,
+        [t("Assessment"), item.id, `${t("Snapshot hash")}: ${item.snapshotHash}\n${item.sourceIssue || item.sourceStatus}`],
+        [t("Structure"), reference(item.references.structure), item.structure ? `${item.structure.name}\n${item.structure.structureType}\n${item.structure.sourceRef}` : "Unavailable"],
+        [t("Configuration"), reference(item.references.configuration), item.configuration ? [
+          item.configuration.name, `${t("Top")}: ${item.configuration.topId} / ${t("Bottom")}: ${item.configuration.bottomId}`,
+          `${t("Height")}: ${item.configuration.heightM} m / ${t("Baseline epoch")}: ${item.configuration.baselineEpoch}`,
           item.configuration.heightSource, item.configuration.sourceRef, item.result?.method
         ].filter(Boolean).join("\n") : "Unavailable"],
-        ["Baseline", reference(item.references.baseline), survey(item.baseline)],
-        ["Observation", reference(item.references.observation), survey(item.observation)],
-        ...(item.evidence ? [["Evidence contract", item.id, item.evidence.summary]] : [])
+        [t("Baseline"), reference(item.references.baseline), survey(item.baseline)],
+        [t("Observation"), reference(item.references.observation), survey(item.observation)],
+        ...(item.evidence ? [[t("Evidence contract"), item.id, item.evidence.summary]] : [])
       ]));
     }
     if (report.layout.sections.includes("trends")) report.trends.forEach(chart);
     heading("Traceability and limitations");
-    table([{ label: "Item", width: 145 }, { label: "Snapshot evidence", width: 366 }], [["Output language", report.outputLanguage], ["Snapshot hash", report.snapshotHash], ["Source revision", report.sourceRevision], ["Quality rule version", report.qualityRuleVersion], ["Generated by / at", `${report.generatedBy} / ${report.generatedAt}`], ["Threshold groups", JSON.stringify(report.thresholdGroups)], ["Selected markers", report.filter.markerIds.join(", ")]]);
+    table([{ label: "Item", width: 145 }, { label: "Snapshot evidence", width: 366 }], [[t("Output language"), report.outputLanguage], [t("Snapshot hash"), report.snapshotHash], [t("Source revision"), report.sourceRevision], [t("Quality rule version"), report.qualityRuleVersion], [t("Generated by / at"), `${report.generatedBy} / ${report.generatedAt}`], [t("Threshold groups"), JSON.stringify(report.thresholdGroups)], [t("Selected markers"), report.filter.markerIds.join(", ")]]);
 
     const range = doc.bufferedPageRange();
     for (let index = range.start; index < range.start + range.count; index++) {
@@ -267,7 +296,7 @@ function renderMonitoringReportPdf(report, options = {}) {
       doc.fillColor("#12395d").fontSize(8).text(report.layout.header, 42, 26, { width: 400, lineBreak: false });
       doc.strokeColor("#cbd5e1").moveTo(42, 43).lineTo(553, 43).stroke();
       doc.strokeColor("#cbd5e1").moveTo(42, 770).lineTo(553, 770).stroke();
-      doc.fillColor("#536473").fontSize(7).text(report.layout.footer, 42, 778, { width: 390, lineBreak: false }).text(`Page ${index + 1} of ${range.count}`, 455, 778, { width: 98, align: "right", lineBreak: false });
+      doc.fillColor("#536473").fontSize(7).text(report.layout.footer, 42, 778, { width: 390, lineBreak: false }).text(ReportLabels.page(report.locale, index + 1, range.count), 455, 778, { width: 98, align: "right", lineBreak: false });
     }
     doc.end();
   });
@@ -275,4 +304,5 @@ function renderMonitoringReportPdf(report, options = {}) {
 
 module.exports = { FONT_PATH, renderMonitoringReportPdf };
 
-window.renderOriginalPdf=module.exports.renderMonitoringReportPdf;})();
+    window.renderOriginalPdf = module.exports.renderMonitoringReportPdf;
+  })();

@@ -1,6 +1,6 @@
 const fs = require('fs'), assert = require('assert/strict');
 module.exports = async function (page, directory, section) {
-  await page.locator('[data-view="reports"]').click();
+  await require('./trial-test-navigation')(page, 'reports');
   await page.locator(`#reportSections input[value="${section}"]`).check();
   await page.getByRole('button', { name: 'Generate report preview', exact: true }).click();
   await page.waitForFunction(() => !document.querySelector('#downloadMonitoringReport').disabled);

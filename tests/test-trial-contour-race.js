@@ -7,7 +7,7 @@ const fs = require('fs'), assert = require('assert/strict');
     const p = await b.newPage(); await p.route('https://tile.openstreetmap.org/**', r => r.abort());
     await p.goto(process.env.TRIAL_URL || 'http://127.0.0.1:3184/cw-ground-settlement-demo/');
     await p.waitForFunction(() => window.monitoringAppReady);
-    await p.locator('[data-view="contours"]').click();
+    await require('./trial-test-navigation')(p, 'contours');
     await p.waitForFunction(() => latestContourResult && !document.querySelector('#exportContourPng').disabled);
     // Hold exactly one completed response, without sleeping or changing calculations.
     await p.evaluate(() => {

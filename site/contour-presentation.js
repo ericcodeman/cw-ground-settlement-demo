@@ -80,6 +80,7 @@
       "Action 2": { color: "#943300", dash: [7, 3, 2, 3] },
       "Action 3": { color: "#b42318", dash: [10, 3, 2, 3] },
       Okay: { color: "#1f8a5b", dash: [] },
+      "Below configured thresholds": { color: "#1f8a5b", dash: [] },
       "Below Alert": { color: "#1f8a5b", dash: [] }
     };
     return styles[label] || { color: "#1769aa", dash: [] };
@@ -101,6 +102,7 @@
       ["Project", p.projectName], ["Group", groupName(m.markerGroup)],
       ["Records through", m.markerDate === "latest" ? "Latest available per marker" : m.markerDate],
       ["Observation range", dates.length ? dates[0] + " to " + dates.at(-1) : "No observations"],
+      ...(m.observationAge ? [["Maximum observation age", m.observationAge.maximumDays + " days from " + (m.observationAge.referenceDate || "no eligible date") + " (" + m.observationAge.reference + ")"]] : []),
       ["Coverage", p.markers.length + " used / " + p.exclusions.length + " excluded / " + (p.markers.length + p.exclusions.length) + " total"],
       ["Observed value range", signed(m.valueRange[0]) + " to " + signed(m.valueRange[1]) + " mm"],
       ["Contours", snapshot.features.length + " rendered / " + m.levels.length + " requested levels; interval " + p.interval + " mm"],

@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en">
-<head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; connect-src 'self' https://tile.openstreetmap.org; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'"><style>#trialToolbar label{color:white}#trialToolbar button{min-height:36px;padding:6px 12px}#trialToolbar select,#trialToolbar input{max-width:100%}</style><script src="trial-bundle.js"></script><script src="pdfkit.js"></script><script src="renderer.js"></script>
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; connect-src 'self' https://tile.openstreetmap.org; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'"><style>#trialToolbar label{color:white}#trialToolbar button{min-height:36px;padding:6px 12px}#trialToolbar select,#trialToolbar input{max-width:100%}</style><script src="trial-bundle.js"></script><script src="pdfkit.js"></script><script src="ground-report-display.js"></script><script src="report-labels.js"></script><script src="renderer.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Settlement Monitor</title>
+  <title>SenseOne</title>
   <script>
     (() => {
       try {
@@ -56,7 +56,7 @@
       grid-template-columns: 260px minmax(0, 1fr);
     }
 
-    aside {
+    .app-sidebar {
       background: #102322;
       color: #e9f3f1;
       padding: 24px 18px;
@@ -546,7 +546,7 @@
         grid-template-columns: 1fr;
       }
 
-      aside {
+      .app-sidebar {
         position: static;
         padding: 16px;
       }
@@ -635,7 +635,7 @@
       display: block;
     }
 
-    aside {
+    .app-sidebar {
       position: fixed;
       inset: 0 auto 0 0;
       z-index: 500;
@@ -719,7 +719,7 @@
       color: var(--engineering-blue-dark);
     }
 
-    aside nav {
+    .app-sidebar nav {
       display: grid;
       grid-template-columns: 1fr;
       gap: 4px;
@@ -1230,6 +1230,7 @@
     .contour-workspace {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 280px;
+      align-items: start;
       gap: 14px;
       min-width: 0;
     }
@@ -1280,7 +1281,7 @@
 
     .contour-legend-row {
       display: grid;
-      grid-template-columns: 24px minmax(0, 1fr);
+      grid-template-columns: 42px minmax(0, 1fr);
       align-items: center;
       gap: 8px;
       color: var(--muted);
@@ -1976,7 +1977,7 @@
     }
 
     @media (max-width: 900px) {
-      aside {
+      .app-sidebar {
         position: static;
         width: 100%;
         height: auto;
@@ -1987,7 +1988,7 @@
         padding-bottom: 10px;
       }
 
-      aside nav {
+      .app-sidebar nav {
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
@@ -2068,7 +2069,7 @@
     }
 
     @media (max-width: 620px) {
-      aside nav {
+      .app-sidebar nav {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
@@ -2431,6 +2432,10 @@
       box-shadow: 0 1px 5px rgba(0, 0, 0, .3);
     }
 
+    :root[data-theme="dark"] .contour-analysis-panel :is(.contour-status, .contour-metadata dd) {
+      color: var(--text);
+    }
+
     :root[data-theme="dark"] main::before {
       background-image:
         linear-gradient(rgba(117, 188, 237, .035) 1px, transparent 1px),
@@ -2576,14 +2581,14 @@
     }
   </style>
   <link rel="stylesheet" href="layout-plan.css">
-</head>
+<link rel="stylesheet" href="trial-shell.css"><link rel="stylesheet" href="trial-details.css"></head>
 <body>
   <div class="app">
-    <aside>
+    <aside class="app-sidebar">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">SM</span>
+        <span class="brand-mark" aria-hidden="true">S1</span>
         <div>
-          <strong>Settlement Monitor</strong>
+          <strong>SenseOne</strong>
           <span>Engineering Operations</span>
         </div>
       </div>
@@ -2630,7 +2635,7 @@
           </div>
         </div>
         <button class="nav-button" type="button" data-view="users" data-capability="user:manage"><span aria-hidden="true">♙</span>User management</button>
-        <button class="nav-button appearance-switch" type="button" id="appearanceButton" role="switch" aria-checked="false" aria-label="Switch to dark mode">
+        <button class="nav-button" type="button" data-view="trialProjectSettings" data-capability="trial:configure">Project settings</button><button class="nav-button" type="button" data-view="trialRoleGuide" data-capability="trial:configure">Users and permissions</button><button class="nav-button" type="button" data-view="trialDataReview" data-capability="project:edit">Observation review</button><button class="nav-button" type="button" data-view="trialNotifications">Notification log</button><button class="nav-button appearance-switch" type="button" id="appearanceButton" role="switch" aria-checked="false" aria-label="Switch to dark mode">
           <span id="appearanceIcon" aria-hidden="true">☾</span>
           <span class="nav-text"><b>Appearance</b><small id="appearanceText">Light mode</small></span>
           <span class="toggle-track" aria-hidden="true"></span>
@@ -2646,7 +2651,7 @@
       </div>
     </aside>
 
-    <main><div id="trialToolbar" style="background:#102138;color:white;padding:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">Browser single-user trial · Synthetic/test data only · Not for engineering decisions · Local workflow simulation · Memory resets on refresh · No authentication or email <button onclick="if(!projectChangeBlocked() && confirm('Reset all local trial projects to the synthetic baseline? Export any saved data first.'))BrowserTrial.reset()">Reset trial</button><label>Simulated view <select id="trialRole" onchange="changeTrialRole(this.value)"><option value="admin">Administrator simulation</option><option value="project_staff">Staff simulation</option><option value="client">Client simulation</option><option value="rss">RSS simulation</option></select></label><button onclick="if(!projectChangeBlocked())BrowserTrial.exportData()">Export trial data</button><label>Import trial data <input type="file" accept="application/json" onchange="importTrialPackage(this.files[0])"></label></div>
+    <main><div id="trialToolbar" style="background:#102138;color:white;padding:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">Browser single-user trial · Synthetic/test data only · Not for engineering decisions · Local workflow simulation · Memory resets on refresh · No authentication or email <button onclick="if(!projectChangeBlocked() && confirm('Reset all local trial projects to the synthetic baseline? Export any saved data first.'))BrowserTrial.reset()">Reset trial</button><label>Simulated view <select id="trialRole" onchange="changeTrialRole(this.value)"><option value="admin">Administrator simulation</option><option value="project_staff">Staff simulation</option><option value="client">Client simulation</option><option value="rss">RSS simulation</option></select></label><button onclick="exportTrialPackage()" aria-describedby="trialDataNotice">Export project JSON</button><label>Import project JSON <input type="file" accept="application/json" aria-describedby="trialDataNotice" onchange="previewTrialReplacement(this,false)"></label><p id="trialDataNotice" style="flex-basis:100%;margin:0">Project JSON excludes report snapshots and PDF files. Download reports separately before refreshing. This is not a complete backup. Export and import are limited to 16 MiB and 20 projects; imported data must also fit the export format.</p><p id="trialDataStatus" role="status" style="flex-basis:100%;margin:0"></p></div>
       <div class="topbar">
         <div class="project-control">
           <label class="project-selector">
@@ -2700,6 +2705,12 @@
       </div>
 
       <section id="dashboard" class="view grid">
+<article id="trialToday" class="panel"><div class="section-head"><div><h2>Today workbench</h2><p data-today-date></p></div></div>
+<div class="stats"><button class="stat dashboard-action" type="button" data-today-action="missing"><span>Scheduled measurements</span><strong></strong></button>
+<button class="stat dashboard-action" type="button" data-today-action="review"><span>Unreviewed Ground revisions</span><strong></strong></button>
+<button class="stat dashboard-action" type="button" data-today-action="followups"><span>Open Ground follow-ups</span><strong></strong></button>
+<button class="stat dashboard-action" type="button" data-today-action="notifications"><span>Notification deadlines</span><strong></strong></button></div>
+<p data-today-note></p><div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable monitoring schedule"><table><thead><tr><th>Point</th><th>Last observation date</th><th>Schedule</th><th>Today</th></tr></thead><tbody></tbody></table></div></article>
         <div class="dashboard-overview-heading">
           <div><span class="eyebrow">Project monitoring snapshot</span><h2>Monitoring overview</h2></div>
           <p class="muted">Select a summary to inspect its source records or workflow.</p>
@@ -2795,7 +2806,7 @@
             <div>
               <h2>Alert follow-up register</h2>
               <p class="muted">Threshold crossings create accountable follow-up events. Select an event to review its engineering snapshot and activity.</p>
-              <p class="muted">Scroll the table horizontally to see workflow, owner and dates.</p>
+              <p class="muted">Scroll the table horizontally to see workflow, owner and dates.</p><label><input type="checkbox" id="trialOpenFollowups"> Open follow-ups only</label>
             </div>
           </div>
           <div class="table-wrap">
@@ -2878,9 +2889,22 @@
       </section>
 
       <section id="reports" class="view grid hidden" data-capability="report:export">
+<article id="trialBackup" class="panel">
+<h2>Report archive and data transfer</h2>
+<p>Archives are stored in this browser session. Complete backups include report snapshots, original PDFs, embedded layout plans and evidence. Project JSON has a separate 16 MiB limit and excludes reports. Records CSV contains observations only.</p>
+<button class="button" type="button" onclick="exportCsv()">Download monitoring records CSV</button>
+<button class="button" type="button" onclick="exportTrialPackage()" aria-describedby="trialDataNotice">Export project JSON (partial)</button>
+<div data-capability="trial:configure"><button class="button" type="button" data-preview-backup-capacity>Preview backup capacity</button>
+<button class="button" type="button" data-download-complete>Export complete trial backup</button>
+<div class="entry-card" data-backup-capacity hidden><p>Encoded backup size <output data-capacity-bytes></output></p><p data-capacity-counts></p><p role="status" data-capacity-status></p></div>
+<label>Restore complete trial backup <input id="trialBackupFile" type="file" accept="application/json,.json" onchange="previewTrialReplacement(this,true)"></label>
+<button class="button" type="button" data-download-recovery hidden>Download last recovery copy</button>
+<p>Complete transfer limit: 64 MiB. Save a downloaded copy before refreshing.</p></div>
+<p data-backup-status role="status"></p>
+<h3>Saved report snapshots for this project</h3><ul data-report-archive></ul></article>
         <article class="panel">
           <div class="section-head">
-            <div><h2>Monitoring report export</h2><p class="muted">Build an English-only, traceable multi-page PDF from one independent local trial snapshot. Period and summary grain are configured independently.</p></div>
+            <div><h2>Monitoring report export</h2><p class="muted">Build a traceable multi-page PDF in English or Traditional Chinese from one immutable local trial snapshot. Period and summary grain are configured independently.</p></div>
             <button class="button primary" id="downloadMonitoringReport" type="button" data-export-only disabled>Download snapshot PDF</button>
           </div>
           <form id="monitoringReportForm">
@@ -2893,7 +2917,8 @@
               <label>Marker scope<select id="reportScope"><option value="all">All monitoring points</option><option value="facility">Selected facility</option><option value="markers">Selected monitoring points</option></select></label>
               <label id="reportFacilityLabel">Facility<select id="reportFacility"></select></label>
               <label id="reportMarkersLabel">Monitoring points<select id="reportMarkers" multiple size="6"></select></label>
-              <label>Report title<input id="reportTitle" maxlength="160" value="Settlement Monitoring Report"></label>
+              <label>Report language<select id="trialReportLanguage"><option value="en">English</option><option value="zh-HK">繁體中文</option></select></label><label><input id="trialIncludeGroundHistory" type="checkbox" checked> Include Ground assessment history</label>
+<label>Historical approval version<select id="trialReportGroundApproval"><option value="">All approval versions</option></select><small>Filters historical evidence only.</small></label><label>Report title<input id="reportTitle" maxlength="160" value="Settlement Monitoring Report"></label>
               <label>Header<input id="reportHeader" maxlength="160"></label>
               <label>Footer<input id="reportFooter" maxlength="160" value="Engineering review aid - authorised interpretation required"></label>
               <label class="button file-button">Optional logo (PNG/JPEG, max 1 MB)<input id="reportLogo" type="file" accept="image/png,image/jpeg"></label>
@@ -2911,7 +2936,7 @@
             <button class="button" type="submit">Generate report preview</button>
           </form>
           <p class="form-message" id="monitoringReportStatus" aria-live="polite">Configure the period, scope and sections, then generate a preview.</p>
-          <p class="engineering-separation-note"><strong>English-only engineering review aid.</strong> Report fields and selected source text must use English/Latin script; source records are never translated or altered automatically. Historical exceedances are re-evaluated under the current rules unless a historical threshold version is available. Missing readings are not filled with zero.</p>
+          <p class="engineering-separation-note"><strong>Engineering review aid.</strong> The chosen language applies to system labels. Source records are preserved in their original wording. Historical exceedances are re-evaluated under the current rules unless a historical threshold version is available. Missing readings are not filled with zero.</p>
         </article>
         <div class="grid stats">
           <div class="stat"><span class="muted">Monitoring points</span><span class="value" id="reportMarkerCount">-</span></div>
@@ -2921,6 +2946,7 @@
         </div>
         <article class="panel">
           <div class="section-head"><div><h2>Snapshot preview</h2><p class="muted">The preview and downloaded PDF use the same snapshot hash and source revision.</p></div></div>
+          <h3 id="trialReportSnapshotTitle" hidden></h3><p id="reportGroundReview" hidden></p><section id="trialGroundReportPreview" hidden><h3>Ground assessment history</h3><p></p><div class="table-wrap"><table><thead></thead><tbody></tbody></table></div></section>
           <dl class="contour-metadata" id="reportTraceability"><div><dt>Status</dt><dd>Not generated</dd></div></dl>
           <div id="reportUtilityPreview" hidden>
             <h3>Utility settlement reviews</h3>
@@ -3157,7 +3183,7 @@
       <section id="utilityReviews" class="view panel hidden">
         <h2>Utility segment review</h2>
         <p>Warnings use settlement and differential settlement in mm only. Relative slope is for reference and never triggers a warning.</p>
-        <button class="button" id="utilityReviewRefresh" type="button">Refresh utility reviews</button>
+        <button class="button" type="button" onclick="activateView('utilityRegister')">Open utility register</button> <button class="button" id="utilityReviewRefresh" type="button">Refresh utility reviews</button>
         <p id="utilityReviewStatus" role="status"></p>
         <form id="utilitySegmentFilters" class="form-grid" aria-label="Saved utility review map filters">
           <label>Map review asset<select id="utilitySegmentAsset"><option value="">All assets and legacy pairs</option></select></label>
@@ -3298,7 +3324,7 @@
         <div class="section-head">
           <div>
             <h2>Settlement contour analysis</h2>
-            <p class="muted">Interpolate accumulated settlement in HK1980 using Ordinary Kriging and display the result on the street map.</p>
+            <p class="muted">Ordinary Kriging in HK1980. Interpolated illustration within the monitoring-point coverage. The surface is not used for 3A/5A decisions.</p>
           </div>
           <button class="button primary" type="button" id="exportContourPng" data-export-only disabled>Export contour PNG</button>
         </div>
@@ -3385,7 +3411,7 @@
         <div class="entry-methods" id="recordEntryMethods" data-edit-only data-capability="project:edit">
           <div class="entry-card">
             <h3>1. Manual input</h3>
-            <form id="recordForm" class="form-grid">
+            <div id="trialDueTaskScope" class="record-scope-banner" hidden><label>Scheduled points missing today<select></select></label><button class="button" type="button">Clear scheduled task selection</button><span role="status"></span></div><form id="recordForm" class="form-grid">
               <label>
                 Point
                 <select id="pointSelect" required></select>
@@ -3421,6 +3447,13 @@
           </div>
         </div>
         <p class="form-message" id="recordMessage" aria-live="polite"></p>
+        <details id="recordInputRecovery" hidden>
+          <summary>Unsaved observation input copy</summary>
+          <p>This copy is held only in this page. Download or copy it before refreshing. Downloads are JSON recovery notes, not project-import packages. Raw CSV text is wrapped in JSON rather than exported as spreadsheet cells. Resolve pending save errors before retrying; no automatic resubmission occurs.</p>
+          <label>Input / correction reason<textarea id="recordInputCopy" rows="6" readonly style="width:100%"></textarea></label>
+          <button class="button" id="downloadRecordInputCopy" type="button">Download input copy</button>
+          <button class="button" id="discardRecordInputCopy" type="button">Discard input copy</button>
+        </details>
 
         <div class="record-scope-banner hidden" id="recordScopeBanner" role="status">
           <span id="recordScopeText"></span>
@@ -3569,7 +3602,21 @@
         </div>
       </section>
 
-      <section id="trends" class="view panel hidden">
+      <section id="trialAnalysisFilters" class="entry-card" aria-labelledby="trialAnalysisTitle" hidden>
+<h2 id="trialAnalysisTitle">Analysis scope</h2><p>Scope stays with this project across Trend, Contour, UU and Structure. Saved observation dates are Hong Kong calendar dates.</p>
+<form><div class="form-grid">
+<label>Facility<select name="facility"></select></label><label>From date<input type="date" name="from"></label><label>Through date<input type="date" name="through"></label>
+<label data-analysis-views="trends contours">Ground approval evidence<select name="groundApproval"></select></label>
+<label data-analysis-views="structureAssessments">Captured Structure version number<select name="structureVersion"></select></label>
+<label data-analysis-views="utilityReviews">Captured UU version number<select name="utilityVersion"></select></label>
+<label data-analysis-views="trends">Threshold reference direction<select name="direction"><option value="both">Settlement and heave</option><option value="settlement">Settlement only</option><option value="heave">Heave only</option></select></label>
+<label data-analysis-views="contours">Maximum observation age (days)<input name="age" type="number" min="0" step="1" inputmode="numeric"><small>Measured from the selected through-date, or the latest eligible observation when no date is selected.</small></label>
+</div>
+<details class="entry-card"><summary>Choose monitoring points</summary><label>Find monitoring points<input name="search" type="search"></label>
+<div class="toolbar"><button type="button" class="button compact" data-analysis-all>Select all points</button> <button type="button" class="button compact" data-analysis-none>Clear point selection</button></div>
+<div class="form-grid" data-analysis-points></div></details>
+<div class="toolbar"><button type="submit" class="button primary">Apply analysis scope</button><button type="button" class="button" data-clear-analysis>Clear analysis scope</button></div></form>
+<p role="status" data-analysis-status></p></section><section id="trends" class="view panel hidden">
         <div class="section-head">
           <div>
             <h2>Settlement trend analysis</h2>
@@ -3582,14 +3629,14 @@
         </div>
         <div class="trend-layout">
           <div class="trend-controls" role="group" aria-label="Trend chart filters">
-            <label>
+            <label class="hidden">
               Monitoring points
               <select id="trendPointSelect" multiple size="9" aria-describedby="trendPointHelp"></select>
             </label>
-            <p class="muted" id="trendPointHelp">Hold Ctrl to select individual points, or use the buttons below.</p>
+            <p hidden class="muted" id="trendPointHelp">Hold Ctrl to select individual points, or use the buttons below.</p>
             <div class="toolbar">
-              <button class="button compact" type="button" id="trendSelectAll">Select all</button>
-              <button class="button compact" type="button" id="trendClearAll">Clear selection</button>
+              <button class="button compact hidden" type="button" id="trendSelectAll">Select all</button>
+              <button class="button compact hidden" type="button" id="trendClearAll">Clear selection</button>
             </div>
             <label>
               Threshold reference
@@ -3610,7 +3657,7 @@
         </div>
         <div class="entry-card" id="trendProjectionPanel">
           <h3>Seven-day trend projection (separate from measured records)</h3>
-          <p class="muted">Uses at least three valid observations from the preceding 15 calendar days. The latest observation must be within three days of the cutoff. Projection values never enter records or 3A/5A alarms.</p>
+          <p class="muted">Uses at least three valid observations from the preceding 15 calendar days. The latest observation must be within three days of the cutoff. Projection values never enter records or 3A/5A alarms. The projection retains its own cutoff and model window; the shared scope limits point choices.</p>
           <div class="toolbar">
             <label>Monitoring point<select id="projectionPoint"></select></label>
             <label>Projection cutoff<input id="projectionDate" type="date"></label>
@@ -3646,7 +3693,7 @@
           </div>
         </form>
         <p class="form-message" id="approachMessage" aria-live="polite"></p>
-        <div class="table-wrap"><table><thead id="thresholdHead"></thead><tbody id="thresholdRows"></tbody></table></div>
+        <div class="table-wrap"><table><thead id="thresholdHead"></thead><tbody id="thresholdRows"></tbody></table></div><section class="entry-card" id="trialGroundApprovals" data-capability="trial:configure"></section>
       </section>
 
       <section id="markers" class="view panel hidden">
@@ -3696,7 +3743,9 @@
 
       <section id="pointMaintenance" class="view panel hidden" data-capability="point:manage">
         <div class="section-head"><div><h2>Point maintenance — Administrator</h2><p class="muted">Maintain existing point metadata, not observed readings. Initial-level changes recalculate historical settlement, status, Trend, Contour and reports using the revised baseline. Historical threshold decisions are not reconstructed.</p></div></div>
-        <form id="pointMaintenanceForm" class="form-grid" data-capability="point:manage">
+        <form id="trialGroundSchedule" data-capability="trial:configure"><h3>Monitoring schedule</h3><p>Choose the first scheduled Hong Kong date and the whole-day interval from the project plan.</p>
+<div class="form-grid"><label>Schedule point<select name="pointId" required></select></label><label>First scheduled date<input name="firstDueDate" type="date" required></label><label>Interval in days<input name="intervalDays" type="number" required min="1" max="3650" step="1"></label></div>
+<button class="button primary" type="submit">Save monitoring schedule</button> <button class="button" type="button" data-discard-schedule>Discard schedule changes</button> <button class="button" type="button" data-remove-schedule>Remove schedule</button><p role="status"></p></form><form id="pointMaintenanceForm" class="form-grid" data-capability="point:manage">
           <label>Select point<select id="maintenanceSelect" required></select></label>
           <label>Point ID<input id="maintenanceName" required></label>
           <label>Facility<input id="maintenanceFacility" required></label>
@@ -3713,7 +3762,9 @@
         <div id="pointMaintenanceHistory"></div>
       </section>
 
-      <section id="contacts" class="view grid configuration-grid hidden">
+      <section id="contacts" class="view grid configuration-grid hidden"><article class="panel"><form id="trialNotificationPolicy" data-capability="trial:configure"><h2>Simulated notification deadline</h2>
+<p>Applies only to new notification records. Leave blank if the project has no configured deadline.</p><label>Deadline in hours<input name="hours" type="number" min="1" max="8760" step="1" disabled></label>
+<button type="submit" class="button primary" disabled>Save notification deadline</button> <button type="button" class="button" data-discard-notification-policy>Discard changes</button><p role="status"></p></form></article>
         <article class="panel">
           <div class="section-head">
             <div>
@@ -3873,7 +3924,18 @@
           <div class="table-wrap"><table><thead><tr><th>Time</th><th>Administrator</th><th>Account</th><th>Change</th></tr></thead><tbody id="projectAccessAuditRows"></tbody></table></div>
         </article>
       </section>
-    </main>
+    <section id="trialProjectSettings" class="view panel hidden" data-capability="trial:configure"><h2>Project metadata</h2><p>Changes apply to this local trial project only. Refresh resets session data; export project JSON if needed.</p><form id="trialProjectForm" class="form-grid"><label>Project name<input name="name" required maxlength="160"></label><label>Project code<input name="code" maxlength="40"></label><label>Description<textarea name="description" maxlength="500"></textarea></label><button class="button primary" type="submit">Save project metadata in this trial</button><p id="trialProjectMessage" role="status"></p></form></section><section id="trialRoleGuide" class="view panel hidden" data-capability="trial:configure"><h2>Users and permissions</h2><p>This is a single-user browser workflow simulation. The top-bar role selector demonstrates roles; it does not authenticate users or provide trusted access control.</p><p>Administrator configures the project. Staff records observations and performs authorized follow-up. Client and RSS retain their read-only and existing acknowledgment boundaries. No real account creation, password storage or email delivery is provided.</p></section><section id="trialDataReview" class="view grid hidden" data-capability="project:edit"><article id="trialGroundReview"><h2>Ground observation reviews</h2><p>Review decisions in this simulation do not change engineering severity or remove readings from assessment.</p>
+<div class="form-grid"><label>Find marker or date<input type="search"></label><label><input type="checkbox" data-review-pending> Unreviewed only</label><label>Observation revision<select data-review-selection></select></label></div>
+<p data-review-scope></p><button type="button" class="button" data-review-reload>Refresh review queue</button>
+<div data-review-details></div><form><div class="form-grid"><label>Review outcome<select name="outcome" required><option value="">Choose an outcome</option><option value="accepted">Accept</option><option value="returned">Return</option><option value="remeasure">Request remeasurement</option></select></label><label>Decision reason<textarea name="reason" maxlength="2000" required></textarea></label></div>
+<button type="submit" class="button primary">Record review decision</button> <button type="button" class="button" data-discard>Discard review draft</button></form>
+<p role="status"></p></article><article><h2>Existing quality findings</h2><p>Verifying a quality finding is a separate action.</p><div id="trialQualityReviewHost"></div></article></section>
+<section id="trialNotifications" class="view grid hidden"><article class="panel"><h2>Notification log</h2><p>No email is sent by this browser trial. Receipt and overdue status are simulated and separate from Client acknowledgement of evidence.</p>
+<p data-notification-filter></p><label><input type="checkbox" data-notification-overdue> Overdue in simulation only</label> <button class="button" type="button" data-notification-clear hidden>Clear notification filters</button>
+<div class="table-wrap"><table><thead><tr><th>Event / point</th><th>Recipient</th><th>Channel</th><th>Logged (HKT)</th><th>Delivery</th><th>Receipt</th><th>Follow-up deadline (HKT)</th></tr></thead><tbody></tbody></table></div>
+<p data-notification-status role="status"></p><details data-legacy-notifications hidden><summary>Imported notification references</summary><p>Delivery and receipt are unverified. These references do not count toward simulated deadlines.</p><ul></ul></details><form data-capability="reminder:manage"><h3>Record notification activity</h3><div class="form-grid"><label>Notification<select name="noticeId" required></select></label>
+<label>Activity<select name="activity" required><option value="">Choose an activity</option><option value="phone">Record manual telephone follow-up</option><option value="receipt">Record simulated receipt</option></select></label>
+<label>Activity note<textarea name="reason" required maxlength="2000"></textarea></label></div><button type="submit" class="button primary">Save notification activity</button> <button type="button" class="button" data-discard-notification>Discard note</button></form><div data-notification-details></div></article></section></main>
   </div>
 
   <div class="security-overlay hidden" id="passwordChangeOverlay" role="dialog" aria-modal="true" aria-labelledby="passwordChangeHeading">
@@ -4291,7 +4353,8 @@
       document.querySelectorAll("[data-export-only]").forEach(element => {
         const allowed = hasCapability("report:export");
         element.classList.toggle("permission-hidden", !allowed);
-        if (element.matches("button")) element.disabled = !allowed;
+        if (element.matches("button")) element.disabled = !allowed || (element === els.exportContourPng &&
+          (!latestContourResult || hasUnsavedChanges || latestContourResult.presentation.sourceRevision !== stateRevision));
       });
       document.querySelectorAll("[data-edit-only]").forEach(element => {
         element.classList.toggle("hidden", !canEdit() && element.tagName === "FORM");
@@ -4557,7 +4620,13 @@
     }
 
     function draftDescription() {
+      if (window.trialNotificationHasDraft?.()) return "notification tracking";
+      if (window.trialGroundScheduleHasDraft?.()) return "monitoring schedule";
+      if (window.trialGroundReviewHasDraft?.()) return "Ground observation review";
+      if (window.trialGroundApprovalHasDraft?.()) return "Ground criteria approval";
+      if (document.querySelector('#qualityReviewForm textarea')?.value.trim()) return "quality review";
       if (els.readingValue.value.trim() || els.readingNote.value.trim()) return "monitoring observation";
+      if (recordInputDraft) return "observation input copy";
       if (window.layoutPlanHasDraft?.()) return "layout-plan monitoring point";
       return formDrafts.values().next().value || "";
     }
@@ -4570,7 +4639,7 @@
     }
 
     const trackedDraftForms = [
-      [els.markerForm, "marker information"], [els.approachForm, "monitoring approach"],
+      [document.getElementById("trialProjectForm"), "project metadata"], [els.markerForm, "marker information"], [els.approachForm, "monitoring approach"],
       [els.pointMaintenanceForm, "point maintenance"],
       [els.contactForm, "contact"], [els.reminderRuleForm, "reminder rule"],
       [els.followupForm, "alert follow-up"], [els.userAdminForm, "account"],
@@ -5225,6 +5294,9 @@
       if (!qualityWorkspace) qualityWorkspace = MonitoringQualityUI.mount(document.getElementById("qualityWorkspace"), {
         getState: () => state, canEdit,
         save: async (update, confirmation, review) => {
+          if (Object.hasOwn(update, "qualityRules") && !hasCapability("trial:configure")) {
+            throw new Error("Quality rules require Administrator simulation.");
+          }
           if (hasUnsavedChanges || saveBlocked) throw new Error("Resolve pending project changes before saving quality settings or reviews.");
           const next = { ...state, ...update };
           const prepared = MonitoringQuality.prepare(state, { ...next, _qualityReview: review }, confirmation, currentUser.username, new Date().toISOString());
@@ -5236,6 +5308,14 @@
       else qualityWorkspace.render();
     }
     let qualityPreviewOpen = false;
+    let recordInputDraft = null;
+    function retainRecordInput(text, kind) {
+      recordInputDraft = text ? { text, kind, projectId: activeProjectId } : null;
+      document.getElementById("recordInputCopy").value = text;
+      document.getElementById("recordInputRecovery").hidden = !text;
+      document.getElementById("recordInputRecovery").open = !!text;
+      return recordInputDraft;
+    }
     let readingEditTarget = null;
     function clearReadingEdit() {
       readingEditTarget = null;
@@ -5283,26 +5363,46 @@
       clearFormDraft(els.pointMaintenanceForm);
       document.getElementById("pointMaintenanceHistory").innerHTML = (state.pointMaintenanceAudit || []).slice().reverse().map(entry => `<p>${escapeHtml(entry.at)} · ${escapeHtml(entry.actor)} · ${escapeHtml(entry.reason)} · ${escapeHtml(entry.changes.map(c => `${c.pointId}: ${c.after ? c.fields.join(", ") : "removed"}`).join("; "))}</p>`).join("") || '<p class="muted">No point-maintenance corrections recorded.</p>';
     }
-    async function previewMonitoringRecords(incoming) {
+    async function previewMonitoringRecords(incoming, inputDraft = null) {
       if (!canEdit()) return false;
       if (qualityPreviewOpen) return false;
       if (hasUnsavedChanges || saveBlocked) { els.recordMessage.textContent = "Resolve pending saves before analyzing observations."; return false; }
+      if (recordInputDraft !== inputDraft || (inputDraft && inputDraft.projectId !== activeProjectId)) {
+        els.recordMessage.textContent = "Download or explicitly discard the retained input copy before starting a different observation. Your manual fields and retained input copy are unchanged.";
+        return false;
+      }
       qualityPreviewOpen = true;
       try {
         const originalRevision = stateRevision, originalState = JSON.stringify(state), generation = stateEditGeneration;
         const result = MonitoringQuality.analyze(state, incoming, { rules: state.qualityRules || {}, asOf: state.qualityAsOf || undefined });
         if (!result.canSubmit) {
-          els.recordMessage.textContent = "Nothing saved. Correct the batch: " + result.errors.map(e => `row ${e.row}: ${e.code}`).join("; ");
-          await MonitoringQualityUI.preview(result);
+          els.recordMessage.textContent = "Nothing saved. " + result.errors.slice(0, 5).map(e => MonitoringQualityUI.describeIssue(e, { state, incoming })).join(" ") + (result.errors.length > 5 ? ` See the preview for all ${result.errors.length} errors.` : "");
+          await MonitoringQualityUI.preview(result, { state, incoming });
           return false;
         }
-        if (!result.changes.length && !result.facilityChanges.length) { els.recordMessage.textContent = `${result.skipped.length} identical observations skipped; no notifications generated.`; return false; }
-        const confirmation = await MonitoringQualityUI.preview(result);
+        if (!result.changes.length && !result.facilityChanges.length) { if (recordInputDraft === inputDraft) retainRecordInput("", ""); els.recordMessage.textContent = `${result.skipped.length} identical observations skipped; no notifications generated.`; return false; }
+        const project = activeProjectId;
+        const assertPreviewSource = () => {
+          if (activeProjectId !== project || hasUnsavedChanges || saveBlocked || stateRevision !== originalRevision || stateEditGeneration !== generation || JSON.stringify(state) !== originalState || (window.BrowserTrial && window.BrowserTrial.revision() !== originalRevision)) throw new Error("Project changed while preparing or reviewing the preview. Analyze the observations again.");
+          if (recordInputDraft !== inputDraft) throw new Error("Input copy changed while reviewing the preview. Analyze the observations again.");
+        };
+        let groundPreview;
+        if (window.BrowserTrial && result.changes.length) {
+          const { result: assessment, etag } = await requestJson("/api/ground-observation-preview", {
+            method: "POST", headers: { "If-Match": originalRevision }, body: JSON.stringify({ incoming })
+          }, { scope: "project", fallback: "The Ground assessment basis could not be checked." });
+          assertPreviewSource();
+          if (etag !== originalRevision) throw new Error("Project changed while preparing the preview. Analyze the observations again.");
+          groundPreview = assessment;
+        }
+        const confirmation = await MonitoringQualityUI.preview(result, { state, incoming, groundPreview });
         if (!confirmation) return false;
         const reason = confirmation.reason.trim();
         if ((result.changes.some(c => c.requiresReason) || result.facilityChanges.length || result.findings.length) && !reason) return false;
-        if (hasUnsavedChanges || saveBlocked || stateRevision !== originalRevision || stateEditGeneration !== generation || JSON.stringify(state) !== originalState) throw new Error("Project changed while preview was open. Analyze the observations again.");
+        assertPreviewSource();
+        const previewGuard = groundPreview ? { _groundPreview: { revision: originalRevision, day: groundPreview.observedHongKongDay } } : {};
         const prior = structuredClone(state);
+        const submissionDraft = retainRecordInput(JSON.stringify({ format: "cw-observation-input-copy-1", projectId: activeProjectId, observations: incoming, reason }, null, 2), "json");
         state.records = result.records;
         for (const item of result.facilityChanges) {
           const point = state.points.find(p => p.id === item.pointId);
@@ -5312,7 +5412,11 @@
           const prepared = MonitoringQuality.prepare(prior, { ...state, _csvFacilityCorrections: result.facilityChanges }, { confirmed: true, reason }, currentUser?.username || "local-demo", new Date().toISOString());
           state.qualityAudit = prepared.audit; state.qualityFindings = prepared.findings;
         }
-        if (!await saveState(result.candidates, { confirmed: true, reason }, undefined, undefined, result.facilityChanges)) return false;
+        if (!await saveState(result.candidates, { confirmed: true, reason }, undefined, undefined, result.facilityChanges, previewGuard)) {
+          els.recordMessage.textContent = "Not saved or outcome unknown. Your observation input and correction reason are retained below. Download the copy and resolve the project save error before retrying.";
+          return false;
+        }
+        if (recordInputDraft === submissionDraft) retainRecordInput("", "");
         renderAll();
         els.recordMessage.textContent = `${result.changes.length} observations and ${result.facilityChanges.length} facility updates saved; ${result.skipped.length} duplicate rows skipped.`;
         return true;
@@ -5322,6 +5426,9 @@
 
     async function importRecords(text) {
       if (!canEdit()) return;
+      if (qualityPreviewOpen || hasUnsavedChanges || saveBlocked) { els.recordMessage.textContent = "Resolve pending observations or save errors before importing another CSV. Your input copy has been retained."; return; }
+      if (recordInputDraft && recordInputDraft.text !== text && !confirm("Replace the unsaved input copy with this CSV? Download the existing copy first if needed.")) return;
+      const inputDraft = retainRecordInput(text, "csv");
       const rows = parseCsv(text);
       if (rows.length < 2) {
         els.recordMessage.textContent = "No record rows were found in the CSV.";
@@ -5356,7 +5463,7 @@
         incoming.push(observation);
       });
 
-      await previewMonitoringRecords(incoming);
+      await previewMonitoringRecords(incoming, inputDraft);
     }
 
     function settlementFor(point, record) {
@@ -5552,7 +5659,9 @@
       els.navFollowupCount.setAttribute("aria-label", `${activeCount} open follow-up${activeCount === 1 ? "" : "s"}`);
 
       const latest = latestRecords();
-      els.followupRows.innerHTML = events.length ? events.map(event => {
+      const openOnly = document.getElementById("trialOpenFollowups")?.checked;
+      const visibleEvents = openOnly ? events.filter(event => event.status !== "closed") : events;
+      els.followupRows.innerHTML = visibleEvents.length ? visibleEvents.map(event => {
         const point = state.points.find(item => item.id === event.pointId);
         const latestRecord = latest.get(event.pointId);
         const currentEngineeringStatus = point && latestRecord ? statusFor(point, latestRecord) : "No reading";
@@ -5560,7 +5669,7 @@
         const overdue = DashboardData.followupOverdue(event);
         return `<tr>
           <td><button class="followup-select" type="button" data-followup-id="${escapeHtml(event.id)}">${escapeHtml(event.reference || event.id.slice(0, 8))}</button></td>
-          <td>${escapeHtml(event.pointId)}</td>
+          <td>${escapeHtml(event.pointId)} <button class="button compact trial-detail-trigger" type="button" data-trial-details-event="${escapeHtml(event.id)}">Trigger details</button> <button class="button compact" type="button" data-trial-notification-event="${escapeHtml(event.id)}">Notification log</button></td>
           <td><span class="badge ${statusClass(event.eventSeverityLabel)}">${escapeHtml(event.eventSeverityLabel)}</span></td>
           <td><span class="badge ${statusClass(currentEngineeringStatus)}">${escapeHtml(currentEngineeringStatus)}</span></td>
           <td><span class="badge ${workflow.className}">${workflow.label}</span></td>
@@ -5568,10 +5677,10 @@
           <td>${escapeHtml(event.dueDate || "—")}${overdue ? '<br><span class="badge status-alarm">Overdue</span>' : ""}</td>
           <td>${escapeHtml(hktDateTime(event.updatedAt))}</td>
         </tr>`;
-      }).join("") : `<tr><td colspan="8" class="empty">No threshold follow-up events have been created. Add or update a qualifying monitoring record to start the workflow.</td></tr>`;
+      }).join("") : `<tr><td colspan="8" class="empty">${openOnly ? "No open follow-ups match this view." : "No threshold follow-up events have been created. Add or update a qualifying monitoring record to start the workflow."}</td></tr>`;
 
-      if (!events.some(event => event.id === selectedFollowupId)) selectedFollowupId = events[0]?.id || "";
-      const event = events.find(item => item.id === selectedFollowupId);
+      if (!visibleEvents.some(event => event.id === selectedFollowupId)) selectedFollowupId = visibleEvents[0]?.id || "";
+      const event = visibleEvents.find(item => item.id === selectedFollowupId);
       els.followupDetailEmpty.classList.toggle("hidden", Boolean(event));
       els.followupDetailBody.classList.toggle("hidden", !event);
       if (!event) {
@@ -5724,6 +5833,9 @@
       const submitButton = els.monitoringReportForm.querySelector('button[type="submit"]');
       if (!monitoringReportSnapshot && !submitButton.disabled) return;
       monitoringReportSnapshot = undefined;
+      window.renderTrialReportSnapshotTitle?.();
+      window.renderTrialGroundReportHistory?.();
+      document.getElementById("reportGroundReview").hidden = true;
       monitoringReportRequestNumber += 1;
       submitButton.disabled = false;
       els.downloadMonitoringReport.disabled = true;
@@ -5735,6 +5847,7 @@
     function monitoringReportInput() {
       const type = els.reportPeriodType.value;
       return {
+        ...window.trialGroundHistoryInput?.(),
         period: {
           type, anchorDate: els.reportWeekDate.value, month: els.reportMonth.value,
           start: els.reportStartDate.value, end: els.reportEndDate.value
@@ -5756,6 +5869,7 @@
     }
 
     function renderMonitoringReport(report) {
+      const t = window.MonitoringReportLabels?.translate(report.locale) ?? (label => label);
       const structurePreview = document.getElementById("reportStructurePreview");
       structurePreview.hidden = !report.layout.sections.includes("structure");
       const structureRows = document.getElementById("reportStructureRows");
@@ -5812,10 +5926,15 @@
       els.reportQualityCount.textContent = report.summary.qualityFindings;
       els.reportExceedanceCount.textContent = report.summary.thresholdExceedances;
       els.monitoringReportStatus.textContent = `Snapshot generated for ${report.period.label}. It expires at ${hktDateTime(report.expiresAt)}.`;
+      window.renderTrialReportSnapshotTitle?.(report);
+      window.renderTrialGroundReportHistory?.(report.groundHistory, report.locale);
+      const reviewSummary = document.getElementById("reportGroundReview");
+      reviewSummary.hidden = !report.observationReviewSummary;
+      reviewSummary.textContent = report.observationReviewSummary ? t("Ground observation review") + ": " + report.observationReviewSummary : "";
       els.reportTraceability.innerHTML = [
         ["Output language", report.outputLanguage], ["Snapshot hash", report.snapshotHash], ["Source revision", report.sourceRevision], ["Generated by / at", `${report.generatedBy} / ${hktDateTime(report.generatedAt)}`],
-        ["Threshold assessment", report.thresholdAssessment], ["Quality rule version", report.qualityRuleVersion], ["Selected sections", report.layout.sections.join(", ")]
-      ].map(([term, value]) => `<div><dt>${escapeHtml(term)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
+        ["Threshold assessment", t(report.thresholdAssessment)], ["Quality rule version", report.qualityRuleVersion], ["Selected sections", report.layout.sections.join(", ")]
+      ].map(([term, value]) => `<div><dt>${escapeHtml(t(term))}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
       els.reportPreviewRows.innerHTML = report.markers.length ? report.markers.map(item => `<tr>
         <td><strong>${escapeHtml(item.pointId)}</strong></td><td>${escapeHtml(item.facility)}</td><td>${escapeHtml(item.ruleKey)}<br><small>${escapeHtml(item.ruleVersion)}</small></td><td class="num">${item.observationCount}</td>
         <td>${escapeHtml(item.openingDate || "Unavailable")}<br><small>${escapeHtml(item.openingBasis)}${Number.isFinite(item.openingSettlement) ? ` · ${item.openingSettlement.toFixed(1)} mm` : ""}</small></td>
@@ -5915,6 +6034,7 @@
         openRecordScope("point", pointId, `Observation history for ${pointId} - all recorded dates.`, "points");
       } else if (destination === "trend") {
         clearDashboardReturnContext();
+        window.TrialAnalysis?.focusPoint(pointId);
         [...els.trendPointSelect.options].forEach(option => { option.selected = option.value === pointId; });
         els.trendRuleSelect.value = point.rule;
         trendSelectionInitialized = true;
@@ -5992,7 +6112,7 @@
       els.recordRows.innerHTML = rows.length ? rows.map(record => `
         <tr>
           <td>${escapeHtml(record.date)}</td>
-          <td>${escapeHtml(record.point.id)}</td>
+          <td><button class="button compact trial-detail-trigger" type="button" data-trial-details-point="${escapeHtml(record.point.id)}" data-trial-details-date="${escapeHtml(record.date)}">Details · ${escapeHtml(record.point.id)}</button></td>
           <td>${escapeHtml(record.point.facility)}</td>
           <td>${escapeHtml(record.point.type)}</td>
           <td class="num">${record.reading.toFixed(4)}</td>
@@ -6037,7 +6157,7 @@
             <td class="num">${record ? settlementFor(point, record).toFixed(1) : "—"}</td>
             ${levels.map(level => `<td class="num">${escapeHtml(values[level.key])}</td>`).join("")}
             <td><span class="badge ${record ? statusClass(status) : "status-neutral"}">${record ? status : "No observation"}</span>${record && state.qualityAsOf && Number.isFinite(Number(state.qualityRules?.missingDays)) && state.qualityRules?.missingDays !== null && (Date.parse(state.qualityAsOf + "T00:00:00Z") - Date.parse(record.date + "T00:00:00Z")) / 86400000 > Number(state.qualityRules.missingDays) ? '<br><span class="badge status-alert">Stale</span>' : ""}</td>
-            <td><div class="point-review-actions"><button class="button compact" type="button" data-point-review="history" data-point-id="${escapeHtml(point.id)}" aria-label="View observation history for ${escapeHtml(point.id)}">View history</button><button class="button compact" type="button" data-point-review="trend" data-point-id="${escapeHtml(point.id)}" aria-label="View settlement trend for ${escapeHtml(point.id)}">View trend</button></div></td>
+            <td><div class="point-review-actions"><button class="button compact" type="button" data-point-review="history" data-point-id="${escapeHtml(point.id)}" aria-label="View observation history for ${escapeHtml(point.id)}">View history</button><button class="button compact trial-detail-trigger" type="button" data-trial-details-point="${escapeHtml(point.id)}" data-trial-details-date="${escapeHtml(record?.date || "")}">Details</button><button class="button compact" type="button" data-point-review="trend" data-point-id="${escapeHtml(point.id)}" aria-label="View settlement trend for ${escapeHtml(point.id)}">View trend</button></div></td>
           </tr>
         `;
       }).join("") : `<tr><td colspan="${11 + levels.length}" class="empty">${state.points.length ? "No monitoring points match the search." : "No monitoring points have been registered."}</td></tr>`;
@@ -6058,26 +6178,28 @@
     function renderTrendChart() {
       hideTrendTooltip();
       trendHoverPoints.clear();
-      const selectedIds = new Set([...els.trendPointSelect.selectedOptions].map(option => option.value));
+      const scope = window.TrialAnalysis?.scopeFor("trends");
+      const source = scope ? window.BrowserTrial.analysisObservations(scope) : state;
+      const selectedIds = new Set(scope ? source.points.map(point => point.id) : [...els.trendPointSelect.selectedOptions].map(option => option.value));
       const recordsByPoint = new Map();
-      for (const record of state.records) {
+      for (const record of source.records) {
         if (!recordsByPoint.has(record.pointId)) recordsByPoint.set(record.pointId, []);
         recordsByPoint.get(record.pointId).push(record);
       }
-      const series = state.points
+      const series = source.points
         .filter(point => selectedIds.has(point.id))
         .map(point => ({
           point,
           records: (recordsByPoint.get(point.id) || [])
-            .map(record => ({ ...record, settlement: settlementFor(point, record) }))
+            .map(record => ({ ...record, reading: Number(record.reading), settlement: settlementFor(point, record) }))
             .sort((a, b) => a.date.localeCompare(b.date))
         }))
         .filter(item => item.records.length);
       const ruleKey = els.trendRuleSelect.value || "ground";
       const levels = approachLevels();
-      const limits = thresholdFor(ruleKey);
+      const limits = scope ? window.TrialAnalysis.limitsFor(ruleKey) : thresholdFor(ruleKey);
       const observations = series.flatMap(item => item.records);
-      els.trendApproachChip.textContent = `${state.monitoringApproach} thresholds`;
+      els.trendApproachChip.textContent = limits ? `${state.monitoringApproach} thresholds` : "Criteria not configured";
       els.trendEmpty.classList.toggle("hidden", observations.length > 0);
 
       if (!observations.length) {
@@ -6099,8 +6221,9 @@
         minTime -= 12 * 60 * 60 * 1000;
         maxTime += 12 * 60 * 60 * 1000;
       }
-      const thresholdValues = levels.map(level => Number(limits[level.key]));
-      const maxAbsolute = Math.max(1, MonitoringCore.extent(observations.map(record => Math.abs(record.settlement))).max, ...thresholdValues);
+      const references = scope ? window.TrialAnalysisScope.thresholdReferences(levels, limits, window.TrialAnalysis.direction())
+        : levels.map((level, index) => ({ index, value: -Number(limits[level.key]), text: level.label + " −" + limits[level.key] + " mm" }));
+      const maxAbsolute = Math.max(1, MonitoringCore.extent(observations.map(record => Math.abs(record.settlement))).max, ...references.map(reference => Math.abs(reference.value)));
       const yExtent = Math.ceil((maxAbsolute * 1.14) / 5) * 5;
       const xScale = timestamp => margin.left + ((timestamp - minTime) / (maxTime - minTime)) * plotWidth;
       const yScale = value => margin.top + ((yExtent - value) / (yExtent * 2)) * plotHeight;
@@ -6125,13 +6248,10 @@
           <text x="${x}" y="${height - margin.bottom + 24}" text-anchor="middle">${escapeHtml(date)}</text>`;
       }).join("");
 
-      const thresholdLines = levels.map((level, index) => {
-        const limit = Number(limits[level.key]);
-        const color = thresholdColors[index];
-        const value = -limit;
-        const y = yScale(value);
+      const thresholdLines = references.map(reference => {
+        const color = thresholdColors[reference.index], y = yScale(reference.value);
         return `<line class="threshold-line" x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}" stroke="${color}"></line>
-          <text class="threshold-label" x="${width - margin.right + 8}" y="${y + 4}" style="fill:${color}">${escapeHtml(level.label)} −${limit} mm</text>`;
+          <text class="threshold-label" x="${width - margin.right + 8}" y="${y + 4}" style="fill:${color}">${escapeHtml(reference.text)}</text>`;
       }).join("");
 
       const seriesMarkup = series.map(item => {
@@ -6146,8 +6266,10 @@
         });
         trendHoverPoints.set(item.point.id, points.map(point => ({ ...point,
           details: { markerName: item.point.id, facility: item.point.facility, date: point.record.date,
-            reading: `${point.record.reading.toFixed(4)} mPD`, baseline: `${item.point.baseline.toFixed(4)} mPD`,
-            settlement: `${point.record.settlement.toFixed(1)} mm`, status: statusFor(item.point, point.record) }
+            reading: `${Number(point.record.reading).toFixed(4)} mPD`, baseline: `${Number(item.point.baseline).toFixed(4)} mPD`,
+            settlement: `${point.record.settlement.toFixed(1)} mm`,
+            review: scope ? window.TrialAnalysis.reviewFor(item.point.id, point.record.date) : null,
+            status: scope && !window.TrialAnalysis.limitsFor(item.point.rule) ? "Criteria not configured" : statusFor(item.point, point.record) }
         })));
         const line = points.length > 1
           ? `<polyline class="series-line" data-marker-name="${markerName}" stroke="${color}" style="--series-dark:${style.dark}" stroke-dasharray="${style.dash}" points="${points.map(point => `${point.x},${point.y}`).join(" ")}"></polyline>
@@ -6156,7 +6278,7 @@
             </polyline>`
           : "";
         const marks = points.map(point => `<circle class="series-point" cx="${point.x}" cy="${point.y}" r="5" fill="#d32f2f"></circle>
-          <circle class="series-point-hit series-hover-target" tabindex="0" role="img" aria-label="Marker ${markerName}, ${escapeHtml(point.record.date)}, ${point.record.reading.toFixed(4)} mPD, ${point.record.settlement.toFixed(1)} millimetres" data-marker-name="${markerName}" data-facility="${facilityName}" data-date="${escapeHtml(point.record.date)}" data-settlement="${point.record.settlement.toFixed(1)} mm" cx="${point.x}" cy="${point.y}" r="14">
+          <circle class="series-point-hit series-hover-target" tabindex="0" role="button" data-trial-details-keyboard data-trial-details-point="${markerName}" data-trial-details-date="${escapeHtml(point.record.date)}" aria-label="Marker ${markerName}, ${escapeHtml(point.record.date)}, ${point.record.reading.toFixed(4)} mPD, ${point.record.settlement.toFixed(1)} millimetres" data-marker-name="${markerName}" data-facility="${facilityName}" data-date="${escapeHtml(point.record.date)}" data-settlement="${point.record.settlement.toFixed(1)} mm" cx="${point.x}" cy="${point.y}" r="14">
             <title>Marker ${markerName} · ${escapeHtml(point.record.date)} · ${point.record.reading.toFixed(4)} mPD · ${point.record.settlement.toFixed(1)} mm</title>
           </circle>`).join("");
         const last = points.at(-1);
@@ -6182,7 +6304,7 @@
         const style = trendSeriesStyle(item.point.id);
         return `<span class="trend-legend-item"><svg width="24" height="12" class="trend-legend-swatch" data-light-color="${style.light}" data-dash="${style.dash}" style="--legend-light:${style.light};--legend-dark:${style.dark};border:0"><line x1="0" y1="6" x2="24" y2="6" stroke="var(--legend-color)" stroke-width="3" stroke-dasharray="${style.dash}" /></svg>${escapeHtml(item.point.id)}</span>`;
       }).join("");
-      const thresholdLegend = levels.map((level, index) => `<span class="trend-legend-item"><i class="trend-legend-swatch threshold" style="--legend-color:${thresholdColors[index]}"></i>${escapeHtml(level.label)} −${limits[level.key]} mm</span>`).join("");
+      const thresholdLegend = references.map(reference => `<span class="trend-legend-item"><i class="trend-legend-swatch threshold" style="--legend-color:${thresholdColors[reference.index]}"></i>${escapeHtml(reference.text)}</span>`).join("");
       els.trendLegend.innerHTML = seriesLegend + thresholdLegend + `<span class="trend-legend-item"><i class="trend-legend-swatch" style="--legend-color:#d32f2f"></i>Red dots: observed readings</span>`;
     }
 
@@ -6396,7 +6518,7 @@
       return `
         <div class="map-popup">
           <strong>${escapeHtml(point.id)}</strong>
-          <span>Group: ${escapeHtml(contourGroupLabel(point.rule))}</span>
+          <button class="button compact trial-detail-trigger" type="button" data-trial-details-point="${escapeHtml(point.id)}" data-trial-details-date="${escapeHtml(record.date)}">Ground details</button><span>Group: ${escapeHtml(contourGroupLabel(point.rule))}</span>
           <span>Facility: ${escapeHtml(point.facility)}</span>
           <span>HK1980: ${escapeHtml(details.hk1980)}</span>
           <span>WGS84: ${escapeHtml(details.wgs84)}</span>
@@ -6570,12 +6692,15 @@
       }
     }
 
+    function renderContourSources(selection) {
+      document.getElementById("contourSources").innerHTML = selection.markers.map(m => `<tr><td>${escapeHtml(m.id)}</td><td>${ContourPresentation.signed(m.settlement)} mm</td><td>${escapeHtml(m.date)}${Number.isFinite(m.ageDays) ? " · " + m.ageDays + " days old" : ""}</td><td>${escapeHtml(m.status)}</td></tr>`).join("");
+      document.getElementById("contourExclusions").textContent = selection.exclusions.length ? selection.exclusions.map(m => m.id + ": " + m.reason).join("; ") : "No excluded markers.";
+    }
+
     function renderContourMetadata(geojson) {
       const rows = ContourPresentation.metadataRows(geojson).concat(geojson.presentation.thresholds.map(t => ["Threshold", t.label + ": " + (t.value === null ? "not configured" : "|settlement| ≥ " + t.value + " mm")]));
       els.contourMetadata.innerHTML = rows.map(([term, value]) => `<dt>${escapeHtml(term)}</dt><dd style="overflow-wrap:anywhere">${escapeHtml(value)}</dd>`).join("");
-      const p = geojson.presentation;
-      document.getElementById("contourSources").innerHTML = p.markers.map(m => `<tr><td>${escapeHtml(m.id)}</td><td>${ContourPresentation.signed(m.settlement)} mm</td><td>${escapeHtml(m.date)}</td><td>${escapeHtml(m.status)}</td></tr>`).join("");
-      document.getElementById("contourExclusions").textContent = p.exclusions.length ? p.exclusions.map(m => m.id + ": " + m.reason).join("; ") : "No excluded markers.";
+      renderContourSources(geojson.presentation);
     }
 
     function renderContourMarkers(snapshot) {
@@ -6592,6 +6717,10 @@
     }
 
     function renderTrendProjection() {
+      const scope = window.TrialAnalysis?.scopeFor("trends");
+      const choices = scope ? new Set(window.BrowserTrial.analysisObservations({ ...scope, from: "", through: "", groundApproval: null }).points.map(point => point.id)) : null;
+      for (const option of els.projectionPoint.options) option.disabled = choices ? !choices.has(option.value) : false;
+      if (choices && !choices.has(els.projectionPoint.value)) els.projectionPoint.value = choices.values().next().value ?? "";
       if (!els.projectionPoint.value || !els.projectionDate.value) { els.projectionResult.textContent = "Select a point and cutoff date."; return; }
       let result;
       try { result = TrendProjection.calculate(state, els.projectionPoint.value, els.projectionDate.value); }
@@ -6627,7 +6756,7 @@
         ${observedPoints}
         <text class="projection-axis-title" x="${(plot.left + plot.right) / 2}" y="300" text-anchor="middle">Monitoring date</text>
         <text class="projection-axis-title" transform="translate(22 ${(plot.top + plot.bottom) / 2}) rotate(-90)" text-anchor="middle">Accumulated settlement (mm)</text>
-      </svg></div><p><strong>Measured:</strong> solid blue with filled dots · <strong>Fitted model / projection:</strong> continuous dashed amber; hollow dot marks the model at cutoff. Fitted rate: ${result.slopeMmPerDay.toFixed(2)} mm/day.</p>
+      </svg></div><p><strong>Measured:</strong> solid blue with filled dots · <strong>Projection — not measured:</strong> continuous dashed amber; hollow dot marks the model at cutoff. Fitted rate: ${result.slopeMmPerDay.toFixed(2)} mm/day.</p>
         <p><strong>Latest measured:</strong> ${latest.value.toFixed(1)} mm on ${latest.date}. <strong>Model at cutoff:</strong> ${result.fittedAtCutoff.value.toFixed(1)} mm on ${result.asOfDate}. The model need not pass through measured points; it is not rebased to the last reading. No missing readings are filled.</p>
         <p>${escapeHtml(result.method)}; source observations ${result.observations.length}; cutoff ${escapeHtml(result.asOfDate)}; project revision ${escapeHtml(stateRevision || "local prototype")}.</p>
         <p><strong>Day 7 projection:</strong> ${result.forecast.at(-1).value.toFixed(1)} mm. ${escapeHtml(result.notice)}</p>`;
@@ -6650,10 +6779,7 @@
     }
 
     let contourAbortController;
-    async function renderSettlementContours() {
-      if (!leafletMap || !window.L) return;
-      const requestNumber = ++contourRequestNumber;
-      if (contourAbortController) contourAbortController.abort();
+    function clearContourResult() {
       if (leafletContourLayer) { leafletContourLayer.remove(); leafletContourLayer = undefined; }
       renderContourLineLabels();
       latestContourResult = undefined;
@@ -6663,6 +6789,18 @@
       document.getElementById("contourExclusions").textContent = "";
       renderContourMarkers();
       renderContourLegend();
+    }
+
+    function invalidateContourScope() {
+      contourRequestNumber++;
+      contourAbortController?.abort();
+      clearContourResult();
+    }
+
+    async function renderSettlementContours() {
+      if (!leafletMap || !window.L) return;
+      invalidateContourScope();
+      const requestNumber = contourRequestNumber;
       if (hasUnsavedChanges) { els.contourStatus.textContent = "Save pending changes before calculating contours."; return; }
       if (location.protocol === "file:") { els.contourStatus.textContent = "Contours require the local web server; open the network URL."; return; }
       const interval = Number(els.contourInterval.value);
@@ -6677,13 +6815,26 @@
       if (els.contourDate.value && !MonitoringCore.isoDate(els.contourDate.value)) { els.contourStatus.textContent = "Select a valid contour date."; return; }
       const params = new URLSearchParams({ gridSize: "70", interval: String(interval), colorLimit: String(colorLimit), colorMode: els.contourColorMode.value, colorStyle: els.contourColorStyle.value, bandWidth: String(bandWidth), surfaceOpacity: String(surfaceOpacity), group: els.contourGroup.value });
       if (els.contourDate.value) params.set("date", els.contourDate.value);
+      const scope = window.TrialAnalysis?.scopeFor("contours");
+      if (scope) {
+        params.set("scope", JSON.stringify(scope));
+        const age = window.TrialAnalysis.age();
+        if (age !== "") params.set("maxAgeDays", age);
+      }
       contourAbortController = new AbortController();
       els.contourStatus.textContent = "Calculating Ordinary Kriging surface…";
       try {
         const response = await trialRequest(`/api/settlement-contours?${params}`, { credentials: "same-origin", headers: { "X-Project-Id": activeProjectId }, signal: contourAbortController.signal });
         const geojson = await response.json();
         if (requestNumber !== contourRequestNumber) return;
-        if (!response.ok) throw new Error(geojson.error || "Contours are unavailable");
+        if (!response.ok) {
+          if (scope && geojson.contourSelection) {
+            renderContourSources(geojson.contourSelection);
+            const age = geojson.contourSelection.observationAge;
+            if (age?.referenceDate) document.getElementById("contourExclusions").textContent += ` · Maximum age ${age.maximumDays} days from ${age.referenceDate} (${age.reference}).`;
+          }
+          throw new Error(geojson.error || "Contours are unavailable");
+        }
         if (hasUnsavedChanges || geojson.presentation.sourceRevision !== stateRevision) throw new Error("Project data changed. Refresh the project and recalculate.");
         const layerGroup = L.layerGroup();
         for (const cell of geojson.presentation.surfaceCells) {
@@ -6833,6 +6984,8 @@
     }
 
     const viewDetails = {
+      trialDataReview: ["Data review", "Review saved observation revisions and verify quality findings."],
+      trialNotifications: ["Notification tracking", "No email is sent by this browser trial."], trialRoleGuide: ["Users and permissions", "Local workflow simulation; no trusted account management."], trialProjectSettings: ["Project settings", "Administrator project metadata; diagrammatic layout configuration is separate."],
       structurePreview: ["Building / Structure Monitoring", "Preview a verified HK1980 survey target pair without saving observations."],
       structureRecords: ["Building / Structure Monitoring", "Register structures and retain verified target-pair configurations, surveys and calculation sources."],
       structureAssessments: ["Building / Structure Monitoring", "Review captured structure results, source revisions and historical corrections."],
@@ -6922,7 +7075,7 @@
       if (viewId === "records") els.pageSubtitle.textContent = canEdit()
         ? "Import or enter observations, then filter and review their history."
         : "Read-only observation history: browse recorded dates, levels and threshold-derived status.";
-      document.title = `${details[0]} · Settlement Monitor`;
+      document.title = `${details[0]} · SenseOne`;
       if (options.persist !== false && !options.fromDashboard) saveNavigationPreference(viewId, focus);
       if (viewId === "dashboard") setTimeout(() => {
         setDashboardMapMode(focus === "project-layout" ? "plan" : dashboardMapMode);
@@ -6974,9 +7127,11 @@
       }
       populate(section, sections, "All segment revisions");
       const date = document.getElementById("utilitySegmentDate").value;
+      const scope = window.TrialAnalysis?.scopeFor("utilityReviews");
+      const points = scope ? new Map(state.points.map(point => [point.id, point])) : null;
       return reviews.filter(row => (!asset.value || row.registerLink?.assetId === asset.value) &&
         (!section.value || `${row.registerLink?.segmentId}@${row.registerLink?.segmentVersion}` === section.value) &&
-        (!date || row.date === date));
+        (!date || row.date === date) && (!scope || window.TrialAnalysisScope.utilityMatches(row, scope, points)));
     }
     function renderUtilitySegmentMap() {
       if (!utilitySegmentSelected || document.getElementById("utilityReviews").classList.contains("hidden")) return;
@@ -7218,10 +7373,13 @@
         history: document.getElementById("assessmentHistory").value
       });
       body.replaceChildren(); button.disabled = true; status.textContent = "Loading assessment snapshots…";
+      const scope = window.TrialAnalysis?.scopeFor("structureAssessments");
+      const points = scope ? new Map(state.points.map(point => [point.id, point])) : null;
       try {
         const { result } = await requestJson("/api/structure-assessments?" + params, {}, { scope: "project" });
         if (project !== activeProjectId || request !== assessmentRequest) return;
-        for (const item of result.assessments) {
+        const matches = scope ? result.assessments.filter(row => window.TrialAnalysisScope.structureMatches(row, scope, points)) : result.assessments;
+        for (const item of matches) {
           const row = document.createElement("tr");
           for (const value of [`${item.observation.date} · ${item.structure?.name || "Unavailable"}`,
             item.configuration?.name || "Unavailable", structureAssessmentMetrics(item.result), item.sourceStatus.replaceAll("_", " ")]) {
@@ -7240,12 +7398,12 @@
             open.addEventListener("click", () => { if (project === activeProjectId && request === assessmentRequest) void saveStructureR5("/api/structure-followups", "POST", { assessmentId: item.id }, null, open); }); cell.append(open);
           }
         }
-        if (!result.assessments.length) {
+        if (!matches.length) {
           const row = document.createElement("tr"), cell = document.createElement("td");
           cell.colSpan = 5; cell.textContent = "No structure assessments match these filters."; row.append(cell); body.append(row);
         }
         if (hasCapability("followup:view")) void refreshStructureFollowups();
-        status.textContent = `${result.assessments.length} captured assessment revisions. Source status does not change their captured values.`;
+        status.textContent = `${matches.length} captured assessment revisions match. Source status does not change their captured values.`;
       } catch (error) {
         if (project === activeProjectId && request === assessmentRequest) status.textContent = error.message;
       } finally { if (project === activeProjectId && request === assessmentRequest) button.disabled = false; }
@@ -8673,6 +8831,7 @@
         : targetRect.top - shellRect.top + shell.scrollTop;
       const details = [observation.facility, `Date: ${observation.date}`, `Observed level: ${observation.reading}`,
         `Accumulated settlement: ${observation.settlement}`, `Initial level: ${observation.baseline}`, `Status: ${observation.status}`];
+      if (observation.review) details.push(`Review: ${observation.review}`);
       els.trendTooltip.innerHTML = `<strong>Marker ${escapeHtml(observation.markerName)}</strong>${details.map(detail => `<span>${escapeHtml(detail)}</span>`).join("")}`;
       els.trendTooltip.classList.remove("hidden");
       els.trendTooltip.style.left = `${Math.max(8, Math.min(x + 12, shell.scrollLeft + shell.clientWidth - 238))}px`;
@@ -8787,9 +8946,29 @@
       const file = event.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.addEventListener("load", () => importRecords(reader.result));
+      const project = activeProjectId, revision = stateRevision;
+      reader.addEventListener("load", () => {
+        if (activeProjectId !== project || stateRevision !== revision) { els.recordMessage.textContent = "Project or data changed while reading the CSV. Select the file again for the intended project."; return; }
+        importRecords(reader.result).catch(error => { els.recordMessage.textContent = "CSV not saved: " + error.message; });
+      });
+      reader.addEventListener("error", () => { els.recordMessage.textContent = "The CSV file could not be read. Your current inputs are unchanged; select the file again."; });
       reader.readAsText(file);
       event.target.value = "";
+    });
+
+    els.recordForm.addEventListener("invalid", event => {
+      els.recordMessage.textContent = "Nothing saved. " + (event.target.id === "readingDate" ? "Enter a valid observation date." : "Enter a measured level in mPD; blank is not zero.");
+    }, true);
+    document.getElementById("downloadRecordInputCopy").addEventListener("click", () => {
+      if (!recordInputDraft) return;
+      const content = recordInputDraft.kind === "csv" ? JSON.stringify({ format: "cw-observation-input-copy-1", projectId: recordInputDraft.projectId, sourceFormat: "csv", csvText: recordInputDraft.text }, null, 2) : recordInputDraft.text;
+      const url = URL.createObjectURL(new Blob([content], { type: "application/json" }));
+      const link = document.createElement("a"); link.href = url; link.download = "unsaved-observation-input.json";
+      try { link.click(); } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+    });
+    document.getElementById("discardRecordInputCopy").addEventListener("click", () => {
+      if (!recordInputDraft || !confirm("Discard this input copy? This does not undo any pending project changes or resolve a failed save.")) return;
+      retainRecordInput("", "");
     });
 
     els.downloadRecordTemplate.addEventListener("click", downloadRecordTemplate);
@@ -9356,9 +9535,10 @@
     });
 
     window.addEventListener('trial-data-changed', () => {
-      contourRequestNumber++;
-      if (contourAbortController) contourAbortController.abort();
-      els.exportContourPng.disabled = true;
+      // Dedicated Structure/UU routes save outside the generic state form. Preserve their canonical revisions in later observation saves.
+      const savedTrialState=BrowserTrial.getState();
+      if(Object.hasOwn(savedTrialState,'structureUu'))state.structureUu=savedTrialState.structureUu;else delete state.structureUu;
+      invalidateContourScope();
       els.contourStatus.textContent = 'Local data changed. Recalculate before viewing or exporting the current surface.';
       if (monitoringReportSnapshot) els.monitoringReportStatus.textContent = 'Older preview snapshot retained. Local data changed; regenerate for current values. Download still uses this preview.';
     });
@@ -9368,10 +9548,10 @@
     }
     async function restartTrialView() {
       els.createProjectDialog.close();
+      invalidateMonitoringReport("Generate a preview for the current trial project.");
       monitoringReportSnapshot = undefined;
       monitoringReportRequestNumber++;
-      contourRequestNumber++;
-      if (contourAbortController) contourAbortController.abort();
+      invalidateContourScope();
       await initApp();
       window.dispatchEvent(new Event('trial-project-restored'));
       els.projectSelector.disabled = false;
@@ -9379,10 +9559,11 @@
       els.createProjectForm.querySelector('button[type="submit"]').disabled=false;
       document.getElementById('trialRole').value=BrowserTrial.role();
     }
-    async function importTrialPackage(file) {
+    function exportTrialPackage() {
       if (projectChangeBlocked()) return;
-      try { await BrowserTrial.importData(file); await restartTrialView(); }
-      catch(error) { alert(error.message); }
+      const message = document.getElementById('trialDataStatus');
+      try { const bytes = BrowserTrial.exportData(); message.textContent = 'Project JSON download requested (' + bytes.toLocaleString() + ' bytes). Report snapshots and PDF files are not included.'; }
+      catch (error) { message.textContent = error.message; }
     }
     document.addEventListener('click', async event => {
       const link=event.target.closest('a[href^="/api/followups/"]');
@@ -9455,5 +9636,5 @@
       if (typeof renderWebMap === "function") renderWebMap();
     });
   </script>
-</body>
+<dialog id="trialBackupPreview" aria-labelledby="trialBackupPreviewTitle"><h2 id="trialBackupPreviewTitle">Review replacement before restoring</h2><p data-restore-notice></p><p>Current session: <span data-restore-before></span></p><p>Incoming file: <span data-restore-after></span></p><p data-restore-size></p><ul data-restore-projects></ul><p>The application will hold the previous data as a recovery copy in memory before replacing it.</p><button class="button primary" type="button" data-confirm-restore>Replace trial data</button> <button class="button" type="button" data-cancel-restore>Cancel replacement</button><p role="status" data-restore-status></p></dialog><dialog id="trialGroundDetails" aria-labelledby="trialGroundDetailsTitle" aria-describedby="trialGroundDetailsContext"><h2 id="trialGroundDetailsTitle">Ground details</h2><p id="trialGroundDetailsContext"></p><dl></dl><button class="button" type="button">Close details</button></dialog><script src="trial-shell-model.js"></script><script src="trial-analysis-scope.js"></script><script src="trial-analysis-ui.js"></script><script src="trial-shell.js"></script><script src="trial-details.js"></script><script src="trial-ground-approvals.js"></script><script src="trial-ground-review.js"></script><script src="trial-workbench.js"></script><script src="trial-notifications-ui.js"></script><script src="trial-report-history.js"></script><script src="trial-backup-ui.js"></script></body>
 </html>
