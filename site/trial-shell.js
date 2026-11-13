@@ -79,12 +79,6 @@
     for (const module of model.modules) {
       const button = node("button"); button.type = "button"; button.dataset.module = module.id;
       button.append(moduleIcon(module.id), node("span", module.label, "shell-module-label"));
-      if (["alerts", "review", "notifications"].includes(module.id)) {
-        const badge = node("span", null, "shell-badge");
-
-        badge.setAttribute("role", "img");
-        button.append(badge);
-      }
       button.addEventListener("click", () => {
         const target = module.views.find(view => available().includes(view));
         if (target) { currentModule = module.id; openFunction(target); }
@@ -239,20 +233,6 @@
       document.getElementById("trialBaselineNotice").hidden=hasCapability("trial:configure");
       const kind=document.querySelector('#structureObservationForm [name="kind"]');
       if(kind){const option=kind.querySelector('option[value="baseline"]');if(option)option.disabled=!hasCapability("trial:configure");}
-      const source = BrowserTrial.getState(), counts = model.summary(source);
-      const ground = moduleButtons.get("alerts").querySelector(".shell-badge"), canViewGround = hasCapability("followup:view");
-      ground.textContent = canViewGround ? "G " + counts.groundPending : "—";
-      ground.setAttribute("aria-label", canViewGround ? counts.groundPending + " Ground follow-ups pending closure; excludes UU and Structure" : "Ground follow-up details restricted for this role"); ground.title = ground.getAttribute("aria-label");
-      const reviewBadge = moduleButtons.get("review").querySelector(".shell-badge");
-      const pending = canEdit() ? BrowserTrial.groundReviewPending() : null;
-      reviewBadge.textContent = pending ?? "—";
-      reviewBadge.setAttribute("aria-label", pending == null ? "Observation review restricted for this role" : pending + " unreviewed Ground revisions");
-      reviewBadge.title = reviewBadge.getAttribute("aria-label");
-      const notificationBadge = moduleButtons.get("notifications").querySelector(".shell-badge");
-      const noticeCount = BrowserTrial.notificationSummary().overdue;
-      notificationBadge.textContent = noticeCount ?? "—";
-      notificationBadge.setAttribute("aria-label", noticeCount == null ? "Notification deadline not configured" : noticeCount + " notifications overdue in simulation");
-      notificationBadge.title = notificationBadge.getAttribute("aria-label");
       window.trialNotificationRefresh?.();
       if (currentModule === "review") void window.trialGroundReviewRefresh?.();
       window.trialWorkbenchRefresh?.();

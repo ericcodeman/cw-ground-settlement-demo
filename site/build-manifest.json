@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "name": "SenseOne — Browser Trial",
-  "sourceVersion": "5c30824df0b7d08ab19d2d1a67c1620e34920b49",
-  "build": "browser-trial-e56219f841c4d671",
+  "sourceVersion": "cb33cf2a6d5cdf627fa34804ed5dd2091ef0fa2d",
+  "build": "browser-trial-0ded9dd524596ee3",
   "methods": [
     "Original Ordinary Kriging",
     "Original monitoring report snapshot and PDFKit layout",
     "Original Structure and UU calculation cores"
   ],
   "storage": "Independent page memory; explicit JSON export/import; refresh resets data",
-  "payloadHash": "e56219f841c4d6715fab738adc3ad76adafadf7fa823bbfad422d28585db424b",
+  "payloadHash": "0ded9dd524596ee30f13caa2e5e5261e69f8c6e3672dd8b65554d26cc00f5ff3",
   "files": [
     {
       "name": "THIRD-PARTY-NOTICES.md",
@@ -73,8 +73,8 @@
     },
     {
       "name": "index.html",
-      "bytes": 541063,
-      "sha256": "f0f2e9c6a116bbd82573dd557a3c5cbd3f9ff8a1acb59071e03a6a4bd5306486"
+      "bytes": 539640,
+      "sha256": "8f6994db5a80a84ed145d3b1d774193e14eafdf44cafd565886b01770210d2fb"
     },
     {
       "name": "konva.js",
@@ -688,13 +688,13 @@
     },
     {
       "name": "trial-shell.css",
-      "bytes": 29500,
-      "sha256": "f31efe3be864cb33dbd33d3668f2750cb6d183e51a92c0c57bc7d4ebdcb8a800"
+      "bytes": 29162,
+      "sha256": "affc2506fbf4cd50e5f0f4a6ee0cefda3871670933e44f7194c4fdad8caed6cd"
     },
     {
       "name": "trial-shell.js",
-      "bytes": 21539,
-      "sha256": "6305950bf5f871e69c8b6194f84d3fa5fc35edf9f1e3714966bdd444ab6db6cd"
+      "bytes": 19887,
+      "sha256": "ac65ca137f37d6c9c29da01d3c13b90caf5803c24d33d8a75acd3112dde9cd29"
     },
     {
       "name": "trial-workbench.js",

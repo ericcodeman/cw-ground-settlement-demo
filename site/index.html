@@ -876,26 +876,6 @@
       color: #fff;
     }
 
-    .nav-button.has-count {
-      grid-template-columns: 25px minmax(0, 1fr) auto;
-    }
-
-    .nav-count {
-      min-width: 22px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      background: #f5a623;
-      color: #15283e;
-      font-size: 10px;
-      font-variant-numeric: tabular-nums;
-      text-align: center;
-    }
-
-    .nav-count:empty,
-    .nav-count[data-count="0"] {
-      display: none;
-    }
-
     .sidebar-footer {
       margin-top: auto;
       display: grid;
@@ -2656,8 +2636,8 @@
         <button class="nav-button" type="button" data-view="structureAssessments" data-capability="project:read"><span aria-hidden="true">▦</span>Structure assessments</button>
         <button class="nav-button" type="button" data-view="structureRecords" data-capability="project:read"><span aria-hidden="true">▥</span>Structure records</button>
         <button class="nav-button" type="button" data-view="structurePreview" data-capability="project:edit"><span aria-hidden="true">↗</span>Structure tilt preview</button>
-        <button class="nav-button has-count release-hidden" type="button" data-view="dashboard" data-focus="alerts"><span aria-hidden="true">!</span>Threshold warnings<b class="nav-count" id="navAlertCount" data-count="0" aria-label="0 threshold warnings"></b></button>
-        <button class="nav-button has-count" type="button" data-view="followups" data-capability="followup:view"><span aria-hidden="true">✓</span>Alert follow-up<b class="nav-count" id="navFollowupCount" data-count="0" aria-label="0 open follow-ups"></b></button>
+        <button class="nav-button release-hidden" type="button" data-view="dashboard" data-focus="alerts"><span aria-hidden="true">!</span>Threshold warnings</button>
+        <button class="nav-button" type="button" data-view="followups" data-capability="followup:view"><span aria-hidden="true">✓</span>Alert follow-up</button>
         <button class="nav-button release-hidden" type="button" data-view="dailyReview" data-capability="report:export"><span aria-hidden="true">▤</span>Daily review pack</button>
         <button class="nav-button" type="button" data-view="reports" data-capability="report:export"><span aria-hidden="true">▧</span>Monitoring reports</button>
         <span class="nav-label nav-group" data-capability="project:edit">Administration</span>
@@ -4061,8 +4041,6 @@
       globalSearch: document.getElementById("globalSearch"),
       notificationsButton: document.getElementById("notificationsButton"),
       notificationCount: document.getElementById("notificationCount"),
-      navAlertCount: document.getElementById("navAlertCount"),
-      navFollowupCount: document.getElementById("navFollowupCount"),
       navApproachCode: document.querySelector(".nav-code"),
       pointSelect: document.getElementById("pointSelect"),
       readingDate: document.getElementById("readingDate"),
@@ -5707,10 +5685,6 @@
       els.followupAcknowledgedCount.textContent = counts.acknowledged;
       els.followupProgressCount.textContent = counts.in_progress;
       els.followupClosedCount.textContent = counts.closed;
-      const activeCount = counts.open + counts.acknowledged + counts.in_progress;
-      els.navFollowupCount.textContent = activeCount > 99 ? "99+" : String(activeCount);
-      els.navFollowupCount.dataset.count = String(activeCount);
-      els.navFollowupCount.setAttribute("aria-label", `${activeCount} open follow-up${activeCount === 1 ? "" : "s"}`);
 
       const latest = latestRecords();
       const openOnly = document.getElementById("trialOpenFollowups")?.checked;
@@ -6122,10 +6096,6 @@
         : "Configure an observation gap limit and assessment date.";
       els.notificationCount.textContent = warnings > 99 ? "99+" : warnings;
       els.notificationsButton.setAttribute("aria-label", `Current exceedance notifications (${warnings})`);
-      const navigationWarningCount = warnings > 99 ? "99+" : String(warnings);
-      els.navAlertCount.textContent = navigationWarningCount;
-      els.navAlertCount.dataset.count = String(warnings);
-      els.navAlertCount.setAttribute("aria-label", `${warnings} current exceedance point${warnings === 1 ? "" : "s"}`);
       const latestDateAction = [...els.dashboardActions].find(button => button.dataset.dashboardAction === "latest-date");
       if (latestDateAction) latestDateAction.disabled = !summary.latestObservationDate;
     }

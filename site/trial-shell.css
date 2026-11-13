@@ -5,7 +5,6 @@
 .shell-primary button:hover { background:var(--navy-2); }
 .shell-primary button[aria-current="page"] { background:var(--shell-nav-active); color:#fff; box-shadow:inset 3px 0 var(--shell-nav-focus); }
 .shell-primary .shell-module-icon { width:19px; height:19px; flex:none; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
-.shell-primary .shell-badge { margin-left:auto; font-size:12px; border:1px solid #8caac8; border-radius:4px; padding:1px 5px; white-space:nowrap; }
 .shell-primary button[data-module="settings"] { margin-top:12px; border-top:1px solid #46617e; border-radius:0; }
 .shell-primary button[hidden], #shellFunctionRail .nav-button[hidden] { display:none; }
 .shell-context { display:grid; gap:8px; padding:12px 16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); }
@@ -152,7 +151,6 @@
 :root[data-trial-compact] .shell-primary button { min-width:0; min-height:56px; display:grid; grid-template-columns:auto minmax(0,1fr); align-content:center; gap:4px; padding:7px; }
 :root[data-trial-compact] .shell-primary button[hidden] { display:none; }
 :root[data-trial-compact] .shell-primary .shell-module-icon { width:15px; height:15px; }
-:root[data-trial-compact] .shell-primary .shell-badge { grid-column:2; margin-left:0; justify-self:start; }
 :root[data-trial-compact] .shell-primary .shell-module-label { overflow-wrap:anywhere; }
 :root[data-trial-compact] #shellFunctionRail { overflow-x:auto; flex-wrap:nowrap; padding:4px; }
 :root[data-trial-compact] #shellFunctionRail .nav-button { flex-shrink:0; min-height:44px; }
@@ -481,7 +479,6 @@
 
 /* Keep helpers below aligned controls in the two desktop forms. */
 @media (min-width: 1101px) {
-  :root:not([data-trial-dashboard]) #shellPrimary .shell-badge { display: none; }
 
   #contours .contour-controls,
   #monitoringReportForm > .form-grid:has(#reportPeriodType) {

@@ -26,6 +26,11 @@ const server = http.createServer((req, res) => {
     const navigate = async view => require('../demo/trial-test-navigation')(page,view);
     for (const view of ["dashboard", "points", "records", "structureRecords", "utilityReviews", "structurePreview", "trends", "contours", "structureAssessments", "followups", "reports", "markers", "layoutPlans", "utilityRegister", "approach", "pointMaintenance", "contacts", "quality"]) await navigate(view);
     assert.equal(await page.evaluate(() => JSON.stringify(BrowserTrial.getState())), initial);
+    await navigate("dashboard");
+    assert.equal(await page.locator("#shellPrimary .shell-badge").count(), 0);
+    assert.equal(await page.locator('[data-today-action="review"] strong').textContent(), "0");
+    assert.equal(await page.locator('[data-today-action="followups"] strong').textContent(), "0");
+    assert.equal(await page.locator('[data-today-action="notifications"] strong').textContent(), "Not configured");
     checks.push("All available legacy destinations reached through normal module and function buttons without data mutation");
     await navigate('dashboard'); await page.locator('[data-dashboard-action="latest-date"]').click();
     await page.waitForFunction(() => !document.getElementById('recordScopeBanner').classList.contains('hidden'));
@@ -48,8 +53,10 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('[data-module="settings"]').isVisible(), false); assert.equal(await page.locator('[data-module="review"]').isVisible(), false); assert.equal(await page.locator("#shellAddReading").isVisible(), false);
     assert.equal(await page.evaluate(() => BrowserTrial.role()), "client");
     await page.locator("#trialRole").selectOption("rss"); await page.waitForFunction(() => currentUser.role === "rss");
-    assert.equal(await page.locator('[data-module="alerts"] .shell-badge').innerText(), '—');
-    assert.match(await page.locator('[data-module="alerts"] .shell-badge').getAttribute('aria-label'), /restricted/);
+    await navigate("dashboard");
+    assert.equal(await page.locator("#shellPrimary .shell-badge").count(), 0);
+    assert.equal(await page.locator('[data-today-action="followups"] strong').textContent(), "Restricted");
+    assert.equal(await page.locator('[data-today-action="followups"]').isDisabled(), true);
     assert.equal(await page.locator('#shellAddReading').isVisible(), false);
     await page.locator("#trialRole").selectOption("project_staff"); await page.waitForFunction(() => currentUser.role === "project_staff");
     assert.equal(await page.locator('[data-module="settings"]').isVisible(), false);
