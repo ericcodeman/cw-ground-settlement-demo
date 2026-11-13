@@ -5,6 +5,37 @@
   let completeExportRevision = "", reportsChanged = false;
   const moduleButtons = new Map();
   const node = (tag, text, className) => { const el = document.createElement(tag); if (text != null) el.textContent = text; if (className) el.className = className; return el; };
+  const moduleIconPaths = {
+    today: "M2 11.5 12 3l10 8.5M5 10v11h5v-6h4v6h5V10",
+    input: "M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10l-7-7v7h7M8 14h8m-8 3h5",
+    review: "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM7.5 12l3 3 6-6",
+    analysis: "M3 21h18M5 17v-4m5 4V8m5 9V3m5 14V9",
+    alerts: "M18 9a6 6 0 0 0-12 0c0 5-3 5-3 8h18c0-3-3-3-3-8M10 21h4",
+    notifications: "M8 5h13M8 12h13M8 19h13M4 5h.01M4 12h.01M4 19h.01",
+    reports: "M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10l-7-7v7h7M8 17v-3m4 3v-4m4 4v-2",
+    settings: "M10 3h4l.5 2.6 2 .9L19 5l2 3-1.8 1.9v2.2L22 14l-1.5 3.5-2.6-.5-1.8 1.5-.6 2.5h-4l-.8-2.4-2-.9-2.4 1-2.2-3 1.6-2.1-.2-2.2L3 10l1.5-3.5 2.6.4L9 5.4 10 3Z M15 12a3 3 0 1 0-6 0 3 3 0 0 0 6 0Z"
+  };
+  const overviewIconPaths = {
+    dashboard: "M4 4h16v16H4zM4 9h16M10 9v11",
+    points: "M4 4h16v16H4zM10 9a2.5 2.5 0 1 0-5 0 2.5 2.5 0 1 0 5 0ZM6.3 12l1.2 2 1.2-2M13 9h4m-4 4h4m-4 4h4",
+    layoutPlans: "M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5M12 7v10M7 12h10",
+    projectLayout: "M12 3 3 8l9 5 9-5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"
+  };
+  function shellIcon(shape, className) {
+    const namespace = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(namespace, "svg");
+    svg.setAttribute("class", className);
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    const path = document.createElementNS(namespace, "path");
+    path.setAttribute("d", shape);
+    svg.append(path);
+    return svg;
+  }
+  function moduleIcon(id) {
+    return shellIcon(moduleIconPaths[id], "shell-module-icon");
+  }
   function mount() {
     if (mounted || !window.monitoringAppReady) return;
     mounted = true;
@@ -45,11 +76,15 @@
       try{if(await saveState()){finishSubmittedForm(projectForm,signature,"project metadata");await loadProjects();renderAll();message.textContent="Project metadata saved in this trial session.";}else message.textContent="Project metadata not saved. Keep the form and resolve the save error.";}catch(error){message.textContent=error.message;}finally{metadataSaving=false;}
     });
     const primary = node("nav", null, "shell-primary"); primary.id = "shellPrimary"; primary.setAttribute("aria-label", "Primary modules");
-    for (const [index, module] of model.modules.entries()) {
+    for (const module of model.modules) {
       const button = node("button"); button.type = "button"; button.dataset.module = module.id;
-      const number = node("span", String(index + 1).padStart(2, "0"), "shell-number"); number.setAttribute("aria-hidden", "true");
-      button.append(number, node("span", module.label, "shell-module-label"));
-      if (["alerts", "review", "notifications"].includes(module.id)) button.append(node("span", "—", "shell-badge"));
+      button.append(moduleIcon(module.id), node("span", module.label, "shell-module-label"));
+      if (["alerts", "review", "notifications"].includes(module.id)) {
+        const badge = node("span", null, "shell-badge");
+
+        badge.setAttribute("role", "img");
+        button.append(badge);
+      }
       button.addEventListener("click", () => {
         const target = module.views.find(view => available().includes(view));
         if (target) { currentModule = module.id; openFunction(target); }
@@ -64,15 +99,34 @@
     let adminSection="projects";
     for(const section of model.adminSections){const b=node("button",section.label,"button");b.type="button";b.dataset.adminSection=section.id;b.addEventListener("click",()=>{const target=section.views.find(v=>available().includes(v));if(target){adminSection=section.id;currentModule="settings";openFunction(target);}});adminRail.append(b);}
     context.append(notice, adminRail, rail);
-    buttons.forEach(button => rail.append(button));
+    for (const button of buttons) {
+      const id = button.dataset.focus === "project-layout" ? "projectLayout"
+        : button.dataset.focus ? null : button.dataset.view;
+      const shape = overviewIconPaths[id];
+      const glyph = shape && button.querySelector(':scope > span[aria-hidden="true"]');
+      if (glyph) {
+        glyph.classList.add("shell-overview-glyph");
+        glyph.replaceChildren(shellIcon(shape, "shell-overview-icon"));
+      }
+      rail.append(button);
+    }
     const appearance = document.getElementById("appearanceButton"); originalNav.replaceChildren(appearance); originalNav.setAttribute("aria-label", "Appearance");
     const topbar = document.querySelector(".topbar"), toolbar = document.getElementById("trialToolbar");
+    const dashboardStorage = node("span", "Refresh clears trial data", "dashboard-storage-note");
+    toolbar.querySelector(".shell-trial-notice").after(dashboardStorage);
     const transfer = node("details", null, "shell-transfer");
     const transferControls = node("div", null, "shell-transfer-controls");
     transfer.append(node("summary", "Local data controls"), transferControls);
+    const dataNotice = document.getElementById("trialDataNotice");
+    const detailedNotice = node("p", dataNotice.textContent, "shell-transfer-detail");
+    dataNotice.textContent = "Project JSON excludes report snapshots and PDFs. Not a complete backup.";
+    dataNotice.removeAttribute("style");
     transferControls.append(toolbar.querySelector('button[onclick^="if("]'), toolbar.querySelector('button[onclick="exportTrialPackage()"]'),
-      toolbar.querySelector('input[type=file]').closest("label"), document.getElementById("trialDataNotice"), document.getElementById("trialDataStatus"));
+      toolbar.querySelector('input[type=file]').closest("label"), dataNotice,
+      document.getElementById("trialDataStatus"));
+    toolbar.querySelector(".shell-trial-limits").append(detailedNotice);
     transfer.open = !isCompact();
+    let dashboardActive = false, dashboardTransferOpen = false;
     toolbar.append(transfer);
     topbar.after(toolbar); toolbar.after(context);
     context.after(document.getElementById("trialAnalysisFilters"));
@@ -149,6 +203,13 @@
     const qualitySettings = document.getElementById("quality");
     const qualityReview = document.getElementById("trialQualityReviewHost");
     function sync(view) {
+      const onDashboard = view === "dashboard";
+      if (dashboardActive !== onDashboard) {
+        if (dashboardActive) dashboardTransferOpen = transfer.open;
+        dashboardActive = onDashboard;
+        transfer.open = onDashboard ? dashboardTransferOpen : !isCompact();
+      }
+      document.documentElement.toggleAttribute("data-trial-dashboard", onDashboard);
       const qualityHost = view === "trialDataReview" ? qualityReview : qualitySettings;
       if (qualityWorkspace.parentElement !== qualityHost) qualityHost.append(qualityWorkspace);
       currentModule = moduleFor(view, currentModule) || "today";
@@ -201,7 +262,7 @@
     function updateViewport() {
       const wasCompact = document.documentElement.hasAttribute("data-trial-compact");
       document.documentElement.toggleAttribute("data-trial-compact", isCompact());
-      if (wasCompact !== isCompact()) transfer.open = !isCompact();
+      if (wasCompact !== isCompact() && !dashboardActive) transfer.open = !isCompact();
       const view = buttons.find(button => {
         const section = document.getElementById(button.dataset.view);
         return section && !section.classList.contains("hidden") && eligible(button);

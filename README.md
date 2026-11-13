@@ -12,7 +12,7 @@ The trial starts with four synthetic markers. Download `site/synthetic-monitorin
 
 ## Interactive capabilities
 
-- Original Dashboard, street map, marker popup, status and alarm queue.
+- Dashboard and Settlement Contour with a top-right basemap selector. Street, Hong Kong topographic and Hong Kong imagery layers share the same markers and calculation results. Dashboard point popups show the latest observed level in mPD.
 - Point registration/maintenance, manual/CSV observations, duplicate/conflict handling, quality preview and correction reasons, configurable 3A/5A thresholds.
 - Trend, original illustrative projection, original Ordinary Kriging contour recomputation, colour legend and annotated PNG export.
 - Structure registration, configuration, baseline/current observations, assessments, history, criteria, GIS and local follow-up.
@@ -32,7 +32,7 @@ Reports and their hashes identify a local snapshot; they are not a digital signa
 
 Large datasets can block the browser while the original synchronous algorithm runs. Small synthetic timing probes are not production capacity approval. English PDFs use an approximately 181 KB Noto Sans HK subset. Traditional Chinese PDFs fetch the approximately 11.9 MB full font on demand, so the first Chinese PDF can take longer. Original report pagination and explicit ellipsis for long table notes are retained; full text remains in the data package.
 
-External network requests: this site's static resources and bounded OpenStreetMap tiles only. Maps require Internet access; blocked tiles show an explicit error while numerical data remains available. No telemetry or monitoring-data delivery is configured. Do not bulk-download tiles. Attribution and third-party notices are retained in `site/THIRD-PARTY-NOTICES.md`.
+External network requests are limited to this site's static resources, OpenStreetMap tiles, and, when selected, Hong Kong Lands Department map tiles and attribution logo. The map providers receive tile requests for the viewed area. Maps require Internet access; blocked tiles show an explicit error while numerical data remains available. No telemetry or monitoring-data delivery is configured. Do not bulk-download tiles. See the [Lands Department topographic API](https://portal.csdi.gov.hk/csdi-webpage/apidoc/TopographicMapAPI) and [imagery API](https://portal.csdi.gov.hk/csdi-webpage/apidoc/ImageryMapAPI) for provider terms, source attribution and limitations. Attribution and third-party notices are retained in `site/THIRD-PARTY-NOTICES.md`.
 
 ## Verification and provenance
 

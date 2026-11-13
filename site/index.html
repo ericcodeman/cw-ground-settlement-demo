@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; connect-src 'self' https://tile.openstreetmap.org; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'"><style>#trialToolbar label{color:white}#trialToolbar button{min-height:36px;padding:6px 12px}#trialToolbar select,#trialToolbar input{max-width:100%}</style><script src="trial-bundle.js"></script><script src="pdfkit.js"></script><script src="ground-report-display.js"></script><script src="report-labels.js"></script><script src="renderer.js"></script>
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org https://mapapi.hkmapservice.gov.hk https://www.landsd.gov.hk; connect-src 'self' https://tile.openstreetmap.org; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'"><style>#trialToolbar label{color:white}#trialToolbar button{min-height:36px;padding:6px 12px}#trialToolbar select,#trialToolbar input{max-width:100%}</style><script src="trial-bundle.js"></script><script src="pdfkit.js"></script><script src="ground-report-display.js"></script><script src="report-labels.js"></script><script src="renderer.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SenseOne</title>
@@ -455,6 +455,23 @@
       overflow: hidden;
     }
 
+    .contour-map-stage { min-width: 0; }
+    .basemap-control {
+      position: absolute; top: 10px; right: 10px; z-index: 650;
+      width: auto; max-width: calc(100% - 64px); min-height: 44px;
+      border-color: var(--line-strong); border-radius: var(--radius-sm);
+      background: var(--surface); color: var(--text); font: inherit;
+      box-shadow: 0 1px 4px rgb(0 0 0 / 20%);
+    }
+    .basemap-control:focus-visible { outline-offset: 2px; }
+    .basemap-status { margin: 0 0 8px; color: var(--text); }
+    .basemap-status:empty, .basemap-status[hidden] { display: none; }
+    @media (max-width: 600px) {
+      #dashboardWebMap .leaflet-popup-content { max-height: 138px; overflow-y: auto; }
+    }
+    .leaflet-control-attribution .landsd-map-logo {
+      display: inline-block; width: auto; height: 20px; vertical-align: middle;
+    }
     .web-map {
       min-height: 420px;
       border: 1px solid var(--line);
@@ -473,8 +490,19 @@
       min-width: 170px;
     }
 
-    .map-popup strong {
-      font-weight: 500;
+    .map-popup strong { font-weight: 650; }
+
+    .map-popup dl {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: baseline;
+      gap: 5px 12px;
+      margin: 4px 0 0;
+    }
+
+    .map-popup dd {
+      margin: 0;
+      font-variant-numeric: tabular-nums;
     }
 
     .zone {
@@ -952,6 +980,9 @@
       border-bottom: 1px solid var(--line);
       box-shadow: 0 1px 4px rgba(18, 36, 58, .05);
     }
+
+    /* Keep Leaflet's high internal pane and control layers below the sticky header. */
+    .leaflet-container { isolation: isolate; }
 
     .project-control { display: flex; align-items: end; gap: 8px; min-width: 0; }
     .project-control .project-selector { flex: 1; min-width: 0; }
@@ -2581,12 +2612,21 @@
     }
   </style>
   <link rel="stylesheet" href="layout-plan.css">
+
 <link rel="stylesheet" href="trial-shell.css"><link rel="stylesheet" href="trial-details.css"></head>
 <body>
   <div class="app">
     <aside class="app-sidebar">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">S1</span>
+        <span class="dashboard-brand-mark" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
+     fill="none" stroke="currentColor" stroke-width="1.6"
+     stroke-linecap="round" stroke-linejoin="round">
+
+  <path d="M12.4 2.8C17.6 2.5 21.2 6.4 21 11.8c-.2 5.2 -4 8.9 -9.2 8.9-5.1 0-9-4-8.8-9.1C3.2 6.6 7.2 3.1 12.4 2.8z"/>
+  <path d="M12.2 7.2c3.1-.2 5.6 2.2 5.5 5.2-.1 3 -2.6 5.3 -5.6 5.2-3-.1-5.3-2.5-5.2-5.5.1-2.8 2.4-4.8 5.3-4.9z"/>
+  <circle cx="12" cy="12" r="1.6"/>
+</svg></span>
         <div>
           <strong>SenseOne</strong>
           <span>Engineering Operations</span>
@@ -2594,7 +2634,7 @@
       </div>
       <nav aria-label="Main views">
         <span class="nav-label">Operations</span>
-        <button class="nav-button active" type="button" data-view="dashboard"><span aria-hidden="true">▦</span>Dashboard</button>
+        <button class="nav-button active" type="button" data-view="dashboard"><span aria-hidden="true"><svg class="server-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4h16v16H4zM4 9h16M10 9v11"/></svg></span>Dashboard</button>
         <div class="nav-section" data-nav-section="monitoring-points">
           <button class="nav-section-toggle" type="button" aria-expanded="true" aria-controls="monitoringPointsNavigation">
             <span class="nav-section-icon" aria-hidden="true">⌖</span>
@@ -2602,10 +2642,10 @@
             <span class="nav-chevron" aria-hidden="true">⌄</span>
           </button>
           <div class="nav-submenu" id="monitoringPointsNavigation">
-            <button class="nav-button" type="button" data-view="points"><span aria-hidden="true">●</span>Monitoring point details</button>
+            <button class="nav-button" type="button" data-view="points"><span aria-hidden="true"><svg class="server-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4h16v16H4zM10 9a2.5 2.5 0 1 0-5 0 2.5 2.5 0 1 0 5 0ZM6.3 12l1.2 2 1.2-2M13 9h4m-4 4h4m-4 4h4"/></svg></span>Monitoring point details</button>
             <button class="nav-button" type="button" data-view="markers" data-capability="project:edit"><span aria-hidden="true">◎</span>Point register</button>
-            <button class="nav-button" type="button" data-view="layoutPlans" data-capability="project:edit"><span aria-hidden="true">＋</span>Plan point placement</button>
-            <button class="nav-button" type="button" data-view="dashboard" data-focus="project-layout"><span aria-hidden="true">▱</span>Project layout</button>
+            <button class="nav-button" type="button" data-view="layoutPlans" data-capability="project:edit"><span aria-hidden="true"><svg class="server-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5M12 7v10M7 12h10"/></svg></span>Plan point placement</button>
+            <button class="nav-button" type="button" data-view="dashboard" data-focus="project-layout"><span aria-hidden="true"><svg class="server-nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 3 8l9 5 9-5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></svg></span>Project layout</button>
           </div>
         </div>
         <button class="nav-button" type="button" data-view="records"><span aria-hidden="true">≡</span>Monitoring records</button>
@@ -2651,7 +2691,7 @@
       </div>
     </aside>
 
-    <main><div id="trialToolbar" style="background:#102138;color:white;padding:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">Browser single-user trial · Synthetic/test data only · Not for engineering decisions · Local workflow simulation · Memory resets on refresh · No authentication or email <button onclick="if(!projectChangeBlocked() && confirm('Reset all local trial projects to the synthetic baseline? Export any saved data first.'))BrowserTrial.reset()">Reset trial</button><label>Simulated view <select id="trialRole" onchange="changeTrialRole(this.value)"><option value="admin">Administrator simulation</option><option value="project_staff">Staff simulation</option><option value="client">Client simulation</option><option value="rss">RSS simulation</option></select></label><button onclick="exportTrialPackage()" aria-describedby="trialDataNotice">Export project JSON</button><label>Import project JSON <input type="file" accept="application/json" aria-describedby="trialDataNotice" onchange="previewTrialReplacement(this,false)"></label><p id="trialDataNotice" style="flex-basis:100%;margin:0">Project JSON excludes report snapshots and PDF files. Download reports separately before refreshing. This is not a complete backup. Export and import are limited to 16 MiB and 20 projects; imported data must also fit the export format.</p><p id="trialDataStatus" role="status" style="flex-basis:100%;margin:0"></p></div>
+    <main><div id="trialToolbar" style="background:#102138;color:white;padding:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="shell-trial-notice">Browser single-user trial · Synthetic data only · Not for engineering decisions</span><details class="shell-trial-limits"><summary>Trial limits</summary><p>For demonstration only. Do not use for engineering decisions. Work stays in this session and is lost on refresh. Roles and notifications are simulated; the trial has no authentication or email delivery.</p></details><button onclick="if(!projectChangeBlocked() && confirm('Reset all local trial projects to the synthetic baseline? Export any saved data first.'))BrowserTrial.reset()">Reset trial</button><label>Simulated view <select id="trialRole" onchange="changeTrialRole(this.value)"><option value="admin">Administrator simulation</option><option value="project_staff">Staff simulation</option><option value="client">Client simulation</option><option value="rss">RSS simulation</option></select></label><button onclick="exportTrialPackage()" aria-describedby="trialDataNotice">Export project JSON</button><label>Import project JSON <input type="file" accept="application/json" aria-describedby="trialDataNotice" onchange="previewTrialReplacement(this,false)"></label><p id="trialDataNotice" style="flex-basis:100%;margin:0">Project JSON excludes report snapshots and PDF files. Download reports separately before refreshing. This is not a complete backup. Export and import are limited to 16 MiB and 20 projects; imported data must also fit the export format.</p><p id="trialDataStatus" role="status" style="flex-basis:100%;margin:0"></p></div>
       <div class="topbar">
         <div class="project-control">
           <label class="project-selector">
@@ -2690,7 +2730,7 @@
       <div class="page-heading">
         <div>
           <span class="eyebrow">Project controls / Instrumentation</span>
-          <h1 id="pageTitle">Settlement Monitoring</h1>
+          <h1 id="pageTitle" tabindex="-1">Monitoring overview</h1>
           <p class="muted" id="pageSubtitle">Daily readings, movement assessment, spatial review and escalation control.</p>
         </div>
         <div class="toolbar page-actions">
@@ -2705,15 +2745,9 @@
       </div>
 
       <section id="dashboard" class="view grid">
-<article id="trialToday" class="panel"><div class="section-head"><div><h2>Today workbench</h2><p data-today-date></p></div></div>
-<div class="stats"><button class="stat dashboard-action" type="button" data-today-action="missing"><span>Scheduled measurements</span><strong></strong></button>
-<button class="stat dashboard-action" type="button" data-today-action="review"><span>Unreviewed Ground revisions</span><strong></strong></button>
-<button class="stat dashboard-action" type="button" data-today-action="followups"><span>Open Ground follow-ups</span><strong></strong></button>
-<button class="stat dashboard-action" type="button" data-today-action="notifications"><span>Notification deadlines</span><strong></strong></button></div>
-<p data-today-note></p><div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable monitoring schedule"><table><thead><tr><th>Point</th><th>Last observation date</th><th>Schedule</th><th>Today</th></tr></thead><tbody></tbody></table></div></article>
         <div class="dashboard-overview-heading">
-          <div><span class="eyebrow">Project monitoring snapshot</span><h2>Monitoring overview</h2></div>
-          <p class="muted">Select a summary to inspect its source records or workflow.</p>
+          <h2>Monitoring snapshot</h2>
+          <p class="muted">Latest available observations by point. Dates may differ.</p>
         </div>
         <p id="projectMetadata" class="muted" aria-live="polite"></p>
         <p id="projectThresholdDraft" class="empty hidden" role="status">Threshold configuration was copied from another project as a draft. Verify the 3A/5A approach and every trigger value against this project's approved criteria before engineering use.</p>
@@ -2758,22 +2792,28 @@
             <div class="section-head">
               <div>
                 <h2>Project spatial overview</h2>
-                <p class="muted">Review current monitoring status on the street map or the diagrammatic project layout.</p>
+                <p class="muted">Select a monitoring point to see its latest observation.</p>
               </div>
               <div class="toolbar">
                 <div class="map-tabs" role="group" aria-label="Dashboard map view">
                   <button class="map-tab active" type="button" data-dashboard-map-mode="web">Street map</button>
                   <button class="map-tab" type="button" data-dashboard-map-mode="plan">Project layout</button>
                 </div>
-                <button class="button compact" type="button" id="openPlanPlacement" data-capability="project:edit">Open plan placement</button>
+                <button class="button compact" type="button" data-dashboard-action="points">Point details</button>
               </div>
             </div>
             <div class="dashboard-project-grid">
               <div class="dashboard-map-stage">
+                <select class="basemap-control" id="dashboardBasemapSelect" aria-label="Dashboard basemap" hidden>
+                  <option value="street">OpenStreetMap</option>
+                  <option value="topographic">Hong Kong topographic map</option>
+                  <option value="imagery">Hong Kong imagery (aerial / satellite)</option>
+                </select>
+                <p class="basemap-status" id="dashboardMapTileError" role="status"></p>
                 <div class="web-map" id="dashboardWebMap" aria-label="Dashboard street map with monitoring points"></div>
                 <div class="map hidden" id="map" aria-label="Project layout plan with monitoring points"></div>
               </div>
-              <article class="dashboard-contour-summary">
+              <div class="dashboard-map-actions"><button class="button compact" type="button" id="openPlanPlacement" data-capability="project:edit">Open plan placement</button></div><article class="dashboard-contour-summary">
                 <span class="eyebrow">Spatial review</span>
                 <h3>Contour input summary</h3>
                 <p class="muted" id="dashboardContourSummary">Checking available Ground Settlement records…</p>
@@ -2783,13 +2823,18 @@
             </div>
           </div>
 
-          <div class="panel" id="dashboardAlarmPanel">
+          <div class="dashboard-priority"><div class="panel" id="dashboardAlarmPanel">
             <div>
               <h2>Alarm queue</h2>
               <p class="muted">One row per currently exceeding point, using its latest valid observation and workflow status.</p>
             </div>
             <div class="alarm-list" id="alarmList"></div>
-          </div>
+          </div><article id="trialToday" class="panel"><div class="section-head"><div><h2>Today workbench</h2><p data-today-date></p></div></div>
+<div class="stats"><button class="stat dashboard-action" type="button" data-today-action="missing"><span>Scheduled measurements</span><strong></strong></button>
+<button class="stat dashboard-action" type="button" data-today-action="review"><span>Unreviewed Ground revisions</span><strong></strong></button>
+<button class="stat dashboard-action" type="button" data-today-action="followups"><span>Open Ground follow-ups</span><strong></strong></button>
+<button class="stat dashboard-action" type="button" data-today-action="notifications"><span>Notification deadlines</span><strong></strong></button></div>
+<p data-today-note></p><details class="dashboard-schedule"><summary>View monitoring schedule</summary><div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable monitoring schedule"><table><thead><tr><th>Point</th><th>Last observation date</th><th>Schedule</th><th>Today</th></tr></thead><tbody></tbody></table></div></details></article></div>
         </div>
       </section>
 
@@ -2917,7 +2962,7 @@
               <label>Marker scope<select id="reportScope"><option value="all">All monitoring points</option><option value="facility">Selected facility</option><option value="markers">Selected monitoring points</option></select></label>
               <label id="reportFacilityLabel">Facility<select id="reportFacility"></select></label>
               <label id="reportMarkersLabel">Monitoring points<select id="reportMarkers" multiple size="6"></select></label>
-              <label>Report language<select id="trialReportLanguage"><option value="en">English</option><option value="zh-HK">繁體中文</option></select></label><label><input id="trialIncludeGroundHistory" type="checkbox" checked> Include Ground assessment history</label>
+              <label>Report language<select id="trialReportLanguage"><option value="en">English</option><option value="zh-HK">Traditional Chinese</option></select></label><label><input id="trialIncludeGroundHistory" type="checkbox" checked> Include Ground assessment history</label>
 <label>Historical approval version<select id="trialReportGroundApproval"><option value="">All approval versions</option></select><small>Filters historical evidence only.</small></label><label>Report title<input id="reportTitle" maxlength="160" value="Settlement Monitoring Report"></label>
               <label>Header<input id="reportHeader" maxlength="160"></label>
               <label>Footer<input id="reportFooter" maxlength="160" value="Engineering review aid - authorised interpretation required"></label>
@@ -3379,7 +3424,15 @@
           <fieldset><legend>Visible drawing layers</legend><div id="contourDxfLayers" class="contact-checks"><span class="muted">Upload a drawing to select layers.</span></div></fieldset>
         </details>
         <div class="contour-workspace">
-          <div class="web-map" id="webMap" aria-label="Interactive settlement contour street map"></div>
+          <div class="contour-map-stage">
+            <select class="basemap-control" id="contourBasemapSelect" aria-label="Contour basemap" hidden>
+              <option value="street">OpenStreetMap</option>
+              <option value="topographic">Hong Kong topographic map</option>
+              <option value="imagery">Hong Kong imagery (aerial / satellite)</option>
+            </select>
+            <p class="basemap-status" id="mapTileError" role="status"></p>
+            <div class="web-map" id="webMap" aria-label="Interactive settlement contour street map"></div>
+          </div>
           <aside class="contour-analysis-panel" aria-label="Contour calculation details">
             <div>
               <span class="eyebrow">Calculation status</span>
@@ -5528,6 +5581,7 @@
       els.projectSelector.innerHTML = projects.map(project => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)}</option>`).join("");
       els.projectSelector.value = activeProjectId;
       const project = projects.find(item => item.id === activeProjectId);
+      els.projectSelector.title = project?.name || "";
       document.getElementById("projectMetadata").textContent = [project?.code && `Code: ${project.code}`, project?.description].filter(Boolean).join(" · ");
       document.getElementById("projectThresholdDraft").classList.toggle("hidden", !state.thresholdsRequireReview);
       els.resetDemo.classList.toggle("hidden", activeProjectId !== "legacy");
@@ -5986,12 +6040,14 @@
       finally { els.downloadMonitoringReport.disabled = !monitoringReportSnapshot; }
     }
 
+    let dashboardReturnControl = null;
     function setDashboardReturnContext(text) {
       els.dashboardReturnText.textContent = text;
       els.dashboardReturnBar.classList.remove("hidden");
     }
 
     function clearDashboardReturnContext() {
+      dashboardReturnControl = null;
       els.dashboardReturnBar.classList.add("hidden");
       els.dashboardReturnText.textContent = "Opened from Dashboard.";
     }
@@ -6512,22 +6568,103 @@
       return { hk1980, wgs84, summary: `HK1980 ${hk1980} | WGS84 ${wgs84}` };
     }
 
-    function monitoringPointPopup(item) {
-      const { point, record, status } = item;
-      const details = coordinateDetails(point);
+    function monitoringPointPopup({ point, record, status, settlement }) {
+      const date = MonitoringCore.isoDate(record?.date) ? record.date : "Not available";
+      const level = MonitoringCore.finiteNumber(record?.reading) ? Number(record.reading).toFixed(4) + " mPD" : "Not available";
+      const movement = Number.isFinite(settlement) ? settlement.toFixed(1) + " mm" : "Not available";
       return `
         <div class="map-popup">
           <strong>${escapeHtml(point.id)}</strong>
-          <button class="button compact trial-detail-trigger" type="button" data-trial-details-point="${escapeHtml(point.id)}" data-trial-details-date="${escapeHtml(record.date)}">Ground details</button><span>Group: ${escapeHtml(contourGroupLabel(point.rule))}</span>
-          <span>Facility: ${escapeHtml(point.facility)}</span>
-          <span>HK1980: ${escapeHtml(details.hk1980)}</span>
-          <span>WGS84: ${escapeHtml(details.wgs84)}</span>
-          <span>Status: ${escapeHtml(status)}</span>
-          <span>Date: ${escapeHtml(record.date)}</span><span>Level: ${record.reading.toFixed(3)} mPD</span><span>Settlement: ${item.settlement.toFixed(1)} mm</span>
-          ${record.note ? `<span>Note: ${escapeHtml(record.note)}</span>` : ""}
+          <dl>
+            <dt>Status</dt><dd>${escapeHtml(status || "Not available")}</dd>
+            <dt>Observation date</dt><dd>${escapeHtml(date)}</dd>
+            <dt>Latest observed level (mPD)</dt><dd>${level}</dd>
+            <dt>Accumulated settlement</dt><dd>${movement}</dd>
+          </dl>
         </div>
       `;
     }
+
+    function attachBasemapControl(map, selectId, statusId, unavailableHint) {
+      const select = document.getElementById(selectId);
+      map.getContainer().appendChild(select);
+      L.DomEvent.disableClickPropagation(select);
+      L.DomEvent.disableScrollPropagation(select);
+      L.DomEvent.on(select, "keydown", L.DomEvent.stopPropagation);
+      const status = document.getElementById(statusId);
+      const governmentTiles = "https://mapapi.hkmapservice.gov.hk/gs/api/v1.0.0/xyz";
+      const landsdCredit = '<a href="https://portal.csdi.gov.hk/csdi-webpage/doc/TNC"><img class="landsd-map-logo" src="https://www.landsd.gov.hk/images/landsd_logo-sm.svg" alt="Hong Kong Lands Department"> Map from Lands Department</a> (CSDI)';
+      const providers = {
+        street: {
+          url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+          options: { maxNativeZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>' }
+        },
+        topographic: {
+          url: governmentTiles + "/basemap/WGS84/{z}/{x}/{y}.png",
+          options: { minNativeZoom: 10, noWrap: true, attribution: landsdCredit }
+        },
+        imagery: {
+          url: governmentTiles + "/imagery/WGS84/{z}/{x}/{y}.png",
+          options: { noWrap: true, attribution: landsdCredit + " · Aerial Photograph from Lands Department · Satellite imagery: Landsat (2024 GBA, 2016 PRD) and MODIS (2001 global)" }
+        }
+      };
+      let activeLayer;
+      let timeout;
+
+      function show(key, fallbackMessage = "") {
+        clearTimeout(timeout);
+        if (activeLayer) map.removeLayer(activeLayer);
+        const provider = providers[key];
+        const label = select.selectedOptions[0].textContent;
+        const layer = L.tileLayer(provider.url, { maxZoom: 20, ...provider.options });
+        activeLayer = layer;
+        status.textContent = fallbackMessage;
+        let hasTile = false;
+        let hadError = false;
+
+        function reportIncomplete() {
+          if (activeLayer !== layer) return;
+          if (hasTile) {
+            status.textContent = [fallbackMessage, "Some " + label + " tiles did not load for this view." + unavailableHint].filter(Boolean).join(" ");
+          } else if (key !== "street") {
+            select.value = "street";
+            show("street", label + " could not load here. Switched to OpenStreetMap.");
+          } else {
+            status.textContent = [fallbackMessage, "OpenStreetMap tiles are unavailable." + unavailableHint].filter(Boolean).join(" ");
+          }
+        }
+
+        function startBatch() {
+          clearTimeout(timeout);
+          hasTile = false;
+          hadError = false;
+          timeout = setTimeout(reportIncomplete, 10000);
+        }
+
+        layer.on("loading", startBatch);
+        layer.on("tileload", () => {
+          if (activeLayer !== layer) return;
+          hasTile = true;
+        });
+        layer.on("tileerror", () => { hadError = true; });
+        layer.on("load", () => {
+          if (activeLayer !== layer) return;
+          clearTimeout(timeout);
+          if (hadError) queueMicrotask(reportIncomplete);
+          else status.textContent = fallbackMessage;
+        });
+
+        startBatch();
+        layer.addTo(map);
+      }
+
+      select.value = "street";
+      select.addEventListener("change", () => show(select.value));
+      select.hidden = false;
+      show(select.value);
+    }
+
+    const basemapPopupPadding = { autoPanPaddingTopLeft: [8, 60], autoPanPaddingBottomRight: [8, 76] };
 
     function renderDashboardWebMap() {
       if (document.getElementById("dashboard").classList.contains("hidden") || dashboardMapMode !== "web") return;
@@ -6542,17 +6679,7 @@
       if (!dashboardLeafletMap) {
         els.dashboardWebMap.innerHTML = "";
         dashboardLeafletMap = L.map(els.dashboardWebMap).setView([22.303, 114.161], 15);
-        const streetLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 20, attribution: "&copy; OpenStreetMap contributors" });
-        streetLayer.on("tileerror", () => {
-          if (!document.getElementById("dashboardMapTileError")) {
-            const notice = document.createElement("div");
-            notice.id = "dashboardMapTileError";
-            notice.className = "empty";
-            notice.textContent = "Street-map tiles are blocked by the network. Allow tile.openstreetmap.org or switch to Project layout.";
-            els.dashboardWebMap.appendChild(notice);
-          }
-        });
-        streetLayer.addTo(dashboardLeafletMap);
+        attachBasemapControl(dashboardLeafletMap, "dashboardBasemapSelect", "dashboardMapTileError", " You can switch to Project layout.");
       }
       dashboardLeafletMarkers.forEach(marker => marker.remove());
       dashboardLeafletMarkers = [];
@@ -6563,7 +6690,7 @@
         }).addTo(dashboardLeafletMap);
         marker.dashboardPointId = item.point.id;
         marker.bindTooltip(item.point.id, { direction: "top" });
-        marker.bindPopup(monitoringPointPopup(item));
+        marker.bindPopup(monitoringPointPopup(item), basemapPopupPadding);
         dashboardLeafletMarkers.push(marker);
         bounds.push([item.coordinates.lat, item.coordinates.lng]);
       }
@@ -6634,20 +6761,7 @@
       if (!leafletMap) {
         els.webMap.innerHTML = "";
         leafletMap = L.map(els.webMap).setView([22.303, 114.161], 15);
-        const streetLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 20,
-          attribution: "&copy; OpenStreetMap contributors"
-        });
-        streetLayer.on("tileerror", () => {
-          if (!document.getElementById("mapTileError")) {
-            const notice = document.createElement("div");
-            notice.id = "mapTileError";
-            notice.className = "empty";
-            notice.textContent = "Street-map tiles are blocked by the network. Allow tile.openstreetmap.org; contour vectors and exports remain available.";
-            els.webMap.appendChild(notice);
-          }
-        });
-        streetLayer.addTo(leafletMap);
+        attachBasemapControl(leafletMap, "contourBasemapSelect", "mapTileError", " Contour overlays and exports remain available.");
         leafletMap.on("moveend zoomend", () => renderContourLineLabels(latestContourResult));
       }
 
@@ -6711,7 +6825,7 @@
       for (const m of snapshot.presentation.markers) {
         const marker = L.circleMarker([m.lat, m.lng], { radius: 7, color: "#ffffff", weight: 2, fillColor: ContourPresentation.style(m.status).color, fillOpacity: 1 }).addTo(leafletMap);
         marker.bindTooltip(escapeHtml(m.id + " · " + ContourPresentation.signed(m.settlement) + " mm"), { permanent: showLabels, direction: "top" });
-        marker.bindPopup(escapeHtml(m.id + " | " + ContourPresentation.signed(m.settlement) + " mm | " + m.date + " | " + m.status));
+        marker.bindPopup(escapeHtml(m.id + " | " + ContourPresentation.signed(m.settlement) + " mm | " + m.date + " | " + m.status), basemapPopupPadding);
         leafletMarkers.push(marker);
       }
     }
@@ -6992,7 +7106,7 @@
       utilityReviews: ["Underground Utilities", "Review explicitly verified segment observations and their derived relative slope."],
       utilityRegister: ["Underground Utilities", "Maintain documented utility assets, verified segments and their revision history."],
       quality: ["Data Quality & Review", "Configure verification rules and trace observation corrections independently from engineering severity."],
-      dashboard: ["Settlement Monitoring", "Daily readings, movement assessment, spatial review and escalation control."],
+      dashboard: ["Monitoring overview", "Daily readings, movement assessment, spatial review and escalation control."],
       records: ["Monitoring Records", "Import, enter, filter and review engineering survey observations."],
       points: ["Monitoring Point Details", "Reference levels, coordinates, latest recorded condition and applicable limits."],
       layoutPlans: ["Plan Point Placement", "Upload project drawings and mark monitoring points manually using diagrammatic relative positions."],
@@ -7028,6 +7142,7 @@
         button.setAttribute("aria-pressed", String(active));
       });
       els.dashboardWebMap.classList.toggle("hidden", !showWeb);
+      document.getElementById("dashboardMapTileError").hidden = !showWeb;
       els.map.classList.toggle("hidden", showWeb);
       if (showWeb) setTimeout(renderDashboardWebMap, 0);
       else setTimeout(renderMap, 0);
@@ -7091,6 +7206,7 @@
       if (viewId === "users") setTimeout(loadManagedUsers, 0);
       if (viewId === "layoutPlans" && typeof window.refreshLayoutPlanViewer === "function") setTimeout(window.refreshLayoutPlanViewer, 0);
       if (options.scroll !== false && !focus) window.scrollTo({ top: 0, behavior: "smooth" });
+      if (options.fromDashboard && !els.dashboardReturnBar.classList.contains("hidden")) els.returnToDashboard.focus({ preventScroll: true });
     }
 
     let utilityRequest = 0;
@@ -8564,6 +8680,7 @@
     els.dashboardActions.forEach(button => {
       button.addEventListener("click", () => {
         const action = button.dataset.dashboardAction;
+        dashboardReturnControl = button;
         const summary = DashboardData.summarize(state, { statusFor, settlementFor });
         els.dashboardInteractionMessage.textContent = "";
         if (action === "points") {
@@ -8595,11 +8712,15 @@
     });
 
     const returnToDashboard = () => {
+      const origin = dashboardReturnControl;
+      const restored = origin?.isConnected ? origin : [...els.alarmList.querySelectorAll("button")].find(button =>
+        ["alarmRecordPoint", "alarmFollowupId"].some(key => origin?.dataset[key] && origin.dataset[key] === button.dataset[key]));
       clearRecordScope(false);
       clearDashboardReturnContext();
       els.dashboardInteractionMessage.textContent = "";
-      activateView("dashboard");
+      activateView("dashboard", { scroll: !restored });
       renderRecords();
+      (restored || els.pageTitle).focus({ preventScroll: !restored });
     };
     els.returnToDashboard.addEventListener("click", returnToDashboard);
     els.recordScopeReturn.addEventListener("click", returnToDashboard);
@@ -8616,13 +8737,17 @@
       const recordButton = event.target.closest("[data-alarm-record-point]");
       const followupButton = event.target.closest("[data-alarm-followup-id]");
       if (mapButton) focusDashboardPoint(mapButton.dataset.alarmMapPoint);
-      else if (recordButton) openDashboardRecordScope("point", recordButton.dataset.alarmRecordPoint, `Dashboard filter: complete observation history for ${recordButton.dataset.alarmRecordPoint}.`);
+      else if (recordButton) {
+        dashboardReturnControl = recordButton;
+        openDashboardRecordScope("point", recordButton.dataset.alarmRecordPoint, `Dashboard filter: complete observation history for ${recordButton.dataset.alarmRecordPoint}.`);
+      }
       else if (followupButton && hasCapability("followup:view")) {
         if (formDrafts.has(els.followupForm) && selectedFollowupId !== followupButton.dataset.alarmFollowupId) {
           showPersistenceError("Unsaved alert follow-up draft. Save it before selecting another event.");
           return;
         }
         selectedFollowupId = followupButton.dataset.alarmFollowupId;
+        dashboardReturnControl = followupButton;
         setDashboardReturnContext("Opened the selected Alert follow-up from the Dashboard alarm queue.");
         renderFollowups();
         activateView("followups", { fromDashboard: true });

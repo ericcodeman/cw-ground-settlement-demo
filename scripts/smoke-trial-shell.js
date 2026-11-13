@@ -166,7 +166,13 @@ const server = http.createServer((req, res) => {
 
     await navigate("dashboard");
     await page.locator('[data-alarm-map-point="PSM01"]').click();
-    await page.locator("#dashboardWebMap").locator(detailSource).click();
+    const popup = page.locator("#dashboardWebMap .leaflet-popup");
+    assert.match(await popup.innerText(), /Latest observed level \(mPD\)/);
+    assert.ok((await popup.innerText()).includes("2026-09-07"));
+    assert.equal(await popup.locator("[data-trial-details-point]").count(), 0);
+    await popup.locator(".leaflet-popup-close-button").click();
+    await navigate("points");
+    await page.locator("#pointRows").locator(detailSource).click();
     assert.equal(await settledDetail(), expectedDetail);
     await closeDetail.click();
 

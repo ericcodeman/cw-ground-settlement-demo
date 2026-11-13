@@ -4,8 +4,7 @@
 .shell-primary button { display:flex; align-items:center; gap:10px; min-height:var(--shell-hit); width:100%; padding:10px 12px; border:0; border-radius:var(--radius-sm); background:transparent; color:var(--shell-nav-text); text-align:left; cursor:pointer; font-weight:600; }
 .shell-primary button:hover { background:var(--navy-2); }
 .shell-primary button[aria-current="page"] { background:var(--shell-nav-active); color:#fff; box-shadow:inset 3px 0 var(--shell-nav-focus); }
-.shell-primary .shell-number { font-variant-numeric:tabular-nums; font-size:12px; color:#b9d0e7; }
-.shell-primary button[aria-current="page"] .shell-number { color:#fff; }
+.shell-primary .shell-module-icon { width:19px; height:19px; flex:none; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
 .shell-primary .shell-badge { margin-left:auto; font-size:12px; border:1px solid #8caac8; border-radius:4px; padding:1px 5px; white-space:nowrap; }
 .shell-primary button[data-module="settings"] { margin-top:12px; border-top:1px solid #46617e; border-radius:0; }
 .shell-primary button[hidden], #shellFunctionRail .nav-button[hidden] { display:none; }
@@ -23,7 +22,16 @@
 .shell-interim { border-left:4px solid var(--engineering-blue); padding:12px 16px; background:var(--surface-2); }
 .shell-interim p + p { margin-top:8px; }
 .shell-table { max-width:100%; overflow:auto; }
-#trialToolbar { font-size:12px; line-height:1.5; border-radius:var(--radius); }
+#trialToolbar { align-items:center; font-size:12px; line-height:1.4; border-radius:var(--radius); }
+#trialToolbar .shell-trial-limits { min-width:0; }
+#trialToolbar .shell-trial-limits summary { min-height:44px; padding:12px 4px; cursor:pointer; }
+#trialToolbar .shell-trial-limits p { max-width:60ch; margin:0 0 6px; }
+#trialToolbar #shellSessionStatus, #trialToolbar #trialDataNotice, #trialToolbar #trialDataStatus { margin:0; }
+#trialToolbar #trialDataStatus:empty { display:none; }
+.shell-utility-editor { margin:8px 0; border:1px solid var(--line); border-radius:var(--radius-sm); }
+.shell-utility-editor > summary { min-height:44px; padding:12px; cursor:pointer; font-weight:650; }
+.shell-utility-editor[open] > :not(summary) { margin:0 12px 12px; }
+.shell-utility-editor > summary:focus-visible, .shell-trial-limits > summary:focus-visible { outline:3px solid currentColor; outline-offset:-3px; }
 #trialToolbar button, #trialToolbar select { min-height:var(--shell-hit) !important; }
 #trialToolbar label, #trialToolbar p { color:var(--shell-nav-text); }
 .shell-transfer { flex-basis:100%; }
@@ -32,9 +40,9 @@
 .shell-transfer summary:focus-visible { outline:3px solid var(--shell-nav-focus); outline-offset:2px; }
 .shell-transfer-controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 :root:not([data-trial-compact]) .shell-transfer summary { display:none; }
-.topbar { flex-wrap:wrap; }
+.topbar { gap:8px 12px; min-height:56px; padding-block:6px; }
 .topbar-actions { flex-wrap:wrap; }
-.topbar-actions .user-chip { max-width:100%; white-space:normal; }
+.topbar-actions .user-chip { display:none; }
 .shell-primary button:focus-visible, #shellFunctionRail .nav-button:focus-visible, .shell-mode select:focus-visible, .shell-add:focus-visible { outline:3px solid var(--shell-focus); outline-offset:3px; }
 .shell-primary button:focus-visible { outline-color:var(--shell-nav-focus); }
 @media (max-width:1100px) { .shell-mode select { max-width:140px; } .topbar { gap:10px; } }
@@ -67,6 +75,72 @@
 @media (max-width:900px) { #trialToday .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:340px) { #trialToday .stats { grid-template-columns:1fr; } }
 
+/* Dashboard uses the existing trial shell with a smaller vertical footprint. */
+:root[data-trial-dashboard] main { gap:12px; }
+:root[data-trial-dashboard] .shell-context { padding:7px 12px; }
+:root[data-trial-dashboard] .shell-context > p { display:none; }
+:root[data-trial-dashboard] .page-heading { padding:0; align-items:center; gap:10px; }
+:root[data-trial-dashboard] .page-heading .eyebrow,
+:root[data-trial-dashboard] #pageSubtitle { display:none; }
+:root[data-trial-dashboard] .page-heading .page-actions { display:flex; flex-wrap:wrap; gap:6px; }
+:root[data-trial-dashboard] #trialToolbar { padding:6px 10px !important; gap:4px 10px !important; }
+:root[data-trial-dashboard] .shell-transfer:not([open]) { flex-basis:auto; }
+:root[data-trial-dashboard] .shell-transfer > summary { display:list-item; }
+:root[data-trial-dashboard] .shell-trial-notice { font-weight:650; }
+.dashboard-storage-note { display:none; }
+:root[data-trial-dashboard] .dashboard-storage-note { display:inline; }
+:root[data-trial-dashboard] .topbar .global-search { min-width:0; }
+:root[data-trial-dashboard] #projectSelector { width:100%; min-width:0; text-overflow:ellipsis; }
+:root[data-trial-dashboard] #dashboard { gap:10px; }
+:root[data-trial-dashboard] #dashboard .dashboard-overview-heading { padding:0; align-items:baseline; }
+:root[data-trial-dashboard] #dashboard .dashboard-overview-heading p,
+:root[data-trial-dashboard] #projectMetadata:empty,
+:root[data-trial-dashboard] #dashboardInteractionMessage:empty { margin:0; }
+:root[data-trial-dashboard] #projectMetadata:empty,
+:root[data-trial-dashboard] #dashboardInteractionMessage:empty { display:none; }
+:root[data-trial-dashboard] #dashboard > .stats { gap:8px; grid-template-columns:repeat(5,minmax(0,1fr)); }
+:root[data-trial-dashboard] #dashboard > .stats > .stat { min-height:88px; padding:10px 12px; }
+:root[data-trial-dashboard] #dashboard > .stats > .stat { align-content:start; grid-template-rows:minmax(25px,auto) auto auto; row-gap:5px; }
+:root[data-trial-dashboard] #dashboard .layout-map { grid-template-columns:minmax(0, 1.7fr) minmax(0, 1fr); gap:12px; }
+:root[data-trial-dashboard] #dashboard > .layout-map > #dashboardMapPanel { grid-column:1; min-width:0; }
+:root[data-trial-dashboard] #dashboard .dashboard-priority { grid-column:2; min-width:0; display:grid; gap:12px; align-content:start; }
+:root[data-trial-dashboard] #dashboardMapPanel .section-head { gap:8px; }
+:root[data-trial-dashboard] #dashboardMapPanel .section-head p { margin:4px 0 0; }
+:root[data-trial-dashboard] #dashboardMapPanel :is(.map-tab,.button) { min-height:44px; }
+:root[data-trial-dashboard] .dashboard-map-actions { display:flex; flex-wrap:wrap; gap:6px; }
+:root[data-trial-dashboard] #dashboard .dashboard-project-grid { grid-template-columns:minmax(0,1fr); gap:8px; }
+:root[data-trial-dashboard] #dashboard .dashboard-map-stage :is(.map,.web-map) { min-height:410px; }
+:root[data-trial-dashboard] #dashboard .dashboard-contour-summary { padding:10px; gap:6px; }
+:root[data-trial-dashboard] #dashboard .dashboard-contour-summary .eyebrow { display:none; }
+:root[data-trial-dashboard] #dashboard .dashboard-contour-summary p { margin:0; }
+:root[data-trial-dashboard] #dashboardAlarmPanel,
+:root[data-trial-dashboard] #trialToday { padding:12px; }
+:root[data-trial-dashboard] #dashboardAlarmPanel p,
+:root[data-trial-dashboard] #trialToday p { margin:4px 0; }
+:root[data-trial-dashboard] .alarm-freshness { font-size:12px; }
+:root[data-trial-dashboard] #trialToday .stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+:root[data-trial-dashboard] #trialToday [data-today-action] { min-height:60px; }
+.dashboard-schedule > summary { cursor:pointer; min-height:44px; padding:12px 0; }
+.dashboard-schedule > summary:focus-visible { outline:3px solid var(--shell-focus); outline-offset:2px; }
+@media (min-width:1280px) {
+  :root[data-trial-dashboard] .topbar { grid-template-columns:minmax(230px,1.25fr) minmax(130px,1fr) max-content; }
+  :root[data-trial-dashboard] .topbar-actions { flex-wrap:nowrap; }
+}
+@media (max-width:1180px) {
+  :root[data-trial-dashboard] #dashboard .layout-map { grid-template-columns:minmax(0,1fr); }
+  :root[data-trial-dashboard] #dashboard .dashboard-priority { grid-column:1; }
+  :root[data-trial-dashboard] #dashboard > .stats { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media (max-width:620px) {
+  :root[data-trial-dashboard] .topbar-actions { display:grid; grid-template-columns:max-content minmax(0,1fr) minmax(0,1.45fr); align-items:end; }
+  :root[data-trial-dashboard] .topbar-actions .shell-mode { min-width:0; }
+  :root[data-trial-dashboard] .topbar-actions .shell-mode select { width:100%; min-width:0; }
+  :root[data-trial-dashboard] .topbar-actions #logoutButton { grid-column:2 / -1; justify-self:start; }
+  :root[data-trial-dashboard] .page-heading { flex-direction:row; align-items:center; }
+  :root[data-trial-dashboard] #dashboard > .stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  :root[data-trial-dashboard] #dashboard .dashboard-map-stage :is(.map,.web-map) { min-height:315px; }
+}
+
 #trialAnalysisFilters { margin:12px 0; }
 #trialAnalysisFilters[hidden], #trialAnalysisFilters [data-analysis-views][hidden] { display:none; }
 #trialAnalysisFilters [data-analysis-points] { max-height:15rem; overflow:auto; margin-top:8px; }
@@ -75,10 +149,392 @@
 #trialAnalysisFilters input:focus-visible, #trialAnalysisFilters select:focus-visible, #trialAnalysisFilters summary:focus-visible { outline:3px solid var(--shell-focus); outline-offset:2px; }
 
 :root[data-trial-compact] .shell-primary { grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-:root[data-trial-compact] .shell-primary button { min-width:0; min-height:56px; display:grid; align-content:center; gap:4px; padding:7px; }
+:root[data-trial-compact] .shell-primary button { min-width:0; min-height:56px; display:grid; grid-template-columns:auto minmax(0,1fr); align-content:center; gap:4px; padding:7px; }
 :root[data-trial-compact] .shell-primary button[hidden] { display:none; }
-:root[data-trial-compact] .shell-primary .shell-number { display:none; }
-:root[data-trial-compact] .shell-primary .shell-badge { margin-left:0; justify-self:start; }
+:root[data-trial-compact] .shell-primary .shell-module-icon { width:15px; height:15px; }
+:root[data-trial-compact] .shell-primary .shell-badge { grid-column:2; margin-left:0; justify-self:start; }
 :root[data-trial-compact] .shell-primary .shell-module-label { overflow-wrap:anywhere; }
 :root[data-trial-compact] #shellFunctionRail { overflow-x:auto; flex-wrap:nowrap; padding:4px; }
 :root[data-trial-compact] #shellFunctionRail .nav-button { flex-shrink:0; min-height:44px; }
+
+.dashboard-brand-mark { display: none; }
+
+/* Desktop Dashboard brand study. Keep the shared shell on its original tokens elsewhere. */
+@media (min-width: 1101px) {
+  :root[data-trial-dashboard] {
+    --brand-navy: #0e233a;
+    --brand-ink: #152b42;
+    --brand-paper: #f3f6f9;
+    --brand-line: #b6c5d3;
+    --brand-hover: #e7eff7;
+    --brand-press: #d5e4f2;
+    --brand-focus: #1465a4;
+    --brand-selected: #183b5a;
+  }
+
+  :root[data-trial-dashboard][data-theme="dark"] {
+    --brand-ink: #e8f0f7;
+    --brand-paper: #111c29;
+    --brand-line: #61768a;
+    --brand-hover: #20364a;
+    --brand-press: #2a455d;
+    --brand-focus: #a6d5ff;
+    --brand-selected: #285476;
+  }
+
+  :root[data-trial-dashboard] body { background: var(--brand-paper); }
+  :root[data-trial-dashboard] .app-sidebar { background: var(--brand-navy); }
+  :root[data-trial-dashboard] .brand { gap: 12px; }
+  :root[data-trial-dashboard] .brand strong { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+  :root[data-trial-dashboard] .brand span:not(.brand-mark) {
+    color: #b8cadc;
+    letter-spacing: .035em;
+    text-transform: none;
+  }
+  :root[data-trial-dashboard] .brand-mark { display: none; }
+  :root[data-trial-dashboard] .brand .dashboard-brand-mark {
+    display: grid;
+    flex: 0 0 40px;
+    height: 40px;
+    place-items: center;
+    border: 1px solid #6b849d;
+    border-radius: 3px;
+    color: #edf5fb;
+  }
+  :root[data-trial-dashboard] .dashboard-brand-mark svg { width: 30px; height: 30px; }
+
+  :root[data-trial-dashboard] .shell-primary button[aria-current="page"] {
+    background: var(--brand-selected);
+    border-inline-start: 3px solid #a6d5ff;
+    padding-inline-start: 9px;
+    box-shadow: none;
+  }
+  :root[data-trial-dashboard] .shell-primary button:hover:not([aria-current="page"]) { background: #193952; }
+  :root[data-trial-dashboard] .shell-primary button:active { background: #2e5474; }
+
+  :root[data-trial-dashboard] .page-heading h1 {
+    color: var(--brand-ink);
+    font-size: 27px;
+    font-weight: 720;
+    letter-spacing: -.025em;
+  }
+  :root[data-trial-dashboard] #dashboard :is(.panel, .stat) { box-shadow: none; }
+  :root[data-trial-dashboard] #dashboard :is(.panel, .stat), :root[data-trial-dashboard] .shell-context {
+    border-radius: 6px;
+  }
+  :root[data-trial-dashboard] #dashboard > .stats > .stat { min-height: 100px; }
+  :root[data-trial-dashboard] #dashboard > .stats > .stat::before { display: none; }
+  :root[data-trial-dashboard] #dashboard > .stats > button.stat:hover {
+    background: var(--brand-hover);
+    border-color: var(--brand-focus);
+  }
+  :root[data-trial-dashboard] #dashboard > .stats > button.stat:active {
+    background: var(--brand-press);
+    border-color: var(--brand-focus);
+  }
+  :root[data-trial-dashboard] #dashboard > .stats > .stat .muted { text-transform: none; letter-spacing: 0; }
+  :root[data-trial-dashboard] #dashboard > .stats > .stat .value { font-variant-numeric: tabular-nums; }
+  :root[data-trial-dashboard] #dashboard > .layout-map { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); }
+
+  :root[data-trial-dashboard] :is(#dashboard, .topbar, .page-actions) .button:not(.primary, .danger-quiet),
+  :root[data-trial-dashboard] :is(#shellFunctionRail .nav-button, #dashboard .map-tab) {
+    background: var(--surface);
+    color: var(--brand-ink);
+    border: 1px solid var(--brand-line);
+    border-radius: 4px;
+    box-shadow: none;
+  }
+  :root[data-trial-dashboard] :is(#dashboard, .topbar, .page-actions) .button:not(.primary, .danger-quiet):hover:not(:disabled),
+  :root[data-trial-dashboard] :is(#shellFunctionRail .nav-button:not(.active), #dashboard .map-tab[aria-pressed="false"]):hover {
+    background: var(--brand-hover);
+    border-color: var(--brand-focus);
+  }
+  :root[data-trial-dashboard] :is(#shellFunctionRail .nav-button.active, #dashboard .map-tab[aria-pressed="true"]) {
+    background: var(--brand-selected);
+    border-color: var(--brand-selected);
+    border-bottom: 3px solid #76b1dc;
+    color: #fff;
+    font-weight: 750;
+  }
+  :root[data-trial-dashboard] #shellFunctionRail .nav-button.active > span { color: inherit; }
+  :root[data-trial-dashboard] :is(#dashboard, .topbar, .page-actions) .button:not(.primary, .danger-quiet):active:not(:disabled),
+  :root[data-trial-dashboard] :is(#shellFunctionRail .nav-button:not(.active), #dashboard .map-tab[aria-pressed="false"]):active {
+    background: var(--brand-press);
+    border-color: var(--brand-focus);
+  }
+  :root[data-trial-dashboard] :is(#shellFunctionRail .nav-button.active, #dashboard .map-tab[aria-pressed="true"]):active {
+    background: var(--brand-navy);
+  }
+  :root[data-trial-dashboard] :is(#dashboard, #shellFunctionRail, .topbar, .page-actions) :is(button, select, summary):focus-visible {
+    outline: 3px solid var(--brand-focus);
+    outline-offset: 3px;
+  }
+  :root[data-trial-dashboard] :is(#dashboard, .topbar) .button.primary {
+    background-image: none;
+    box-shadow: none;
+    border-radius: 4px;
+  }
+  :root[data-trial-dashboard] :is(#dashboard, .topbar) .button.primary:active:not(:disabled) {
+    background-color: #8c3c0d;
+    color: #fff !important;
+  }
+  :root[data-trial-dashboard] #dashboard .basemap-control { box-shadow: none; }
+}
+
+/* White technical palette for the light desktop Dashboard. Geometry stays in the brand rules above. */
+@media (min-width: 1101px) {
+  :root:not([data-theme="dark"]) {
+    --brand-ink: #263546;
+    --brand-paper: #f5f7fa;
+    --brand-line: #cbd5e0;
+    --brand-hover: #eef5fd;
+    --brand-press: #dbeafb;
+    --brand-focus: #2264a7;
+    --brand-selected: #e7f1fc;
+    --geometry-blue: #205995;
+    --geometry-muted: #4b6076;
+    --geometry-edge: #dce4ed;
+    --geometry-selected-edge: #6795c3;
+  }
+
+  :root:not([data-theme="dark"]) main::before {
+    background-image: linear-gradient(#d8e0e86b 1px, transparent 1px),
+      linear-gradient(90deg, #d8e0e86b 1px, transparent 1px);
+  }
+  :root:not([data-theme="dark"]) .app-sidebar {
+    background: #fff;
+    border-color: var(--geometry-edge);
+  }
+  :root:not([data-theme="dark"]) :is(.brand, .sidebar-footer, .navigation-clock) {
+    border-color: var(--geometry-edge);
+  }
+  :root:not([data-theme="dark"]) :is(.brand strong, .navigation-clock strong) {
+    color: var(--brand-ink);
+  }
+  :root:not([data-theme="dark"]) :is(.brand span:not(.brand-mark), .sidebar-footer,
+    .shell-status, .navigation-clock span, .appearance-switch > .nav-text small) { color: var(--geometry-muted); }
+  :root:not([data-theme="dark"]) .brand .dashboard-brand-mark {
+    color: var(--geometry-blue);
+    border-color: var(--geometry-edge);
+  }
+  :root:not([data-theme="dark"]) :is(.shell-primary button, .appearance-switch) {
+    color: var(--brand-ink);
+  }
+  :root:not([data-theme="dark"]) .shell-primary button[data-module="settings"] {
+    border-top-color: var(--geometry-edge);
+  }
+  :root:not([data-theme="dark"]) :is(.shell-module-icon, .appearance-switch > span:first-child) {
+    color: var(--geometry-blue);
+  }
+  :root:not([data-theme="dark"]) .shell-module-icon { stroke-width: 1.55; }
+  :root:not([data-theme="dark"]) .shell-primary button[aria-current="page"] {
+    color: var(--geometry-blue);
+    border-inline-start-color: var(--geometry-selected-edge);
+  }
+  :root:not([data-theme="dark"]) :is(.shell-primary button:hover:not([aria-current="page"]),
+    .appearance-switch:hover, .appearance-switch:focus-visible) { background: var(--brand-hover); color: var(--brand-ink); }
+  :root:not([data-theme="dark"]) :is(.shell-primary button:active, .appearance-switch:active) {
+    background: var(--brand-press);
+  }
+  :root:not([data-theme="dark"]) :is(.shell-primary button, .appearance-switch):focus-visible {
+    outline-color: var(--brand-focus);
+  }
+  :root:not([data-theme="dark"]) .appearance-switch > .toggle-track {
+    background: #dce6f0;
+    border-color: #8298ad;
+  }
+  :root:not([data-theme="dark"]) .appearance-switch > .toggle-track::after {
+    background: #41617e;
+    box-shadow: none;
+  }
+
+  :root:not([data-theme="dark"]) #trialToolbar {
+    background: #edf4fb !important;
+    color: var(--brand-ink) !important;
+    outline: 1px solid var(--geometry-edge);
+    outline-offset: -1px;
+  }
+  :root:not([data-theme="dark"]) #trialToolbar :is(label, p, .shell-status) {
+    color: var(--brand-ink);
+  }
+  :root:not([data-theme="dark"]) #trialToolbar summary:focus-visible {
+    outline-color: var(--brand-focus);
+  }
+  :root:not([data-theme="dark"]) :is(.view .panel, .view.panel, .view .stat, .shell-context, .topbar) {
+    border-color: var(--geometry-edge);
+    box-shadow: none;
+  }
+  :root:not([data-theme="dark"]) .view th {
+    background: #f2f5f8;
+    color: var(--brand-ink);
+  }
+  :root:not([data-theme="dark"]) :is(#shellFunctionRail .nav-button.active,
+    #dashboard .map-tab[aria-pressed="true"]) {
+    color: var(--geometry-blue);
+    border-bottom-color: var(--geometry-selected-edge);
+  }
+  :root:not([data-theme="dark"]) :is(#shellFunctionRail .nav-button.active,
+    #dashboard .map-tab[aria-pressed="true"]):active { background: var(--brand-press); }
+  :root:not([data-theme="dark"]) :is(.view, .topbar, #trialAnalysisFilters) .button.primary {
+    background-color: var(--brand-selected);
+    border-color: #a5bdd7;
+    color: var(--geometry-blue) !important;
+  }
+  :root:not([data-theme="dark"]) :is(.view, .topbar, #trialAnalysisFilters) .button.primary:hover:not(:disabled) {
+    background-color: var(--brand-hover);
+    border-color: var(--brand-focus);
+  }
+  :root:not([data-theme="dark"]) :is(.view, .topbar, #trialAnalysisFilters) .button.primary:active:not(:disabled) {
+    background-color: var(--brand-press);
+    color: var(--geometry-blue) !important;
+  }
+}
+/* Desktop Dashboard type scale. Keep map and panel dimensions in the existing layout rules. */
+@media (min-width: 1101px) {
+  :root[data-trial-dashboard] {
+    --dashboard-font: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
+  }
+  :root[data-trial-dashboard] :is(.app-sidebar, #dashboard, .page-heading) {
+    font-family: var(--dashboard-font);
+  }
+  :root[data-trial-dashboard] .page-heading h1 { font-weight: 700; }
+  :root[data-trial-dashboard] #dashboard > .stats > .stat .muted {
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  :root[data-trial-dashboard] #dashboard .alarm-reading small {
+    font-size: 11.5px;
+    line-height: 1.25;
+  }
+  :root[data-trial-dashboard] #dashboard .alarm-item-head h3 { font-weight: 700; }
+  :root[data-trial-dashboard] #dashboard .map-popup {
+    font-family: var(--dashboard-font);
+    font-size: 13px;
+  }
+  :root[data-trial-dashboard] #dashboard .map-popup strong { font-weight: 700; }
+}
+
+/* The original 23 px glyph slot keeps the Overview function buttons in place. */
+#shellFunctionRail .shell-overview-icon { display: none; }
+@media (min-width: 1101px) {
+  #shellFunctionRail .shell-overview-glyph { position: relative; font-size: 0; }
+  #shellFunctionRail .shell-overview-icon {
+    display: block; position: absolute; inset: 2px; width: 19px; height: 19px;
+    fill: none; stroke: currentColor; stroke-width: 1.55; stroke-linecap: round; stroke-linejoin: round;
+  }
+  :root:not([data-theme="dark"]) #shellFunctionRail .shell-overview-glyph { color: #205995; }
+}
+
+/* Desktop module presentation. Preserve each view's layout and button dimensions. */
+@media (min-width: 1101px) {
+  :root:not([data-trial-dashboard]) {
+    --dashboard-font: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
+  }
+  :root:not([data-trial-dashboard]) :is(.app-sidebar, .page-heading, .view) { font-family: var(--dashboard-font); }
+  :root:not([data-trial-dashboard]) .brand-mark { display: none; }
+  :root:not([data-trial-dashboard]) .brand .dashboard-brand-mark {
+    display: grid; place-items: center; flex: 0 0 38px; height: 38px;
+    border: 1px solid var(--line-strong); border-radius: 3px;
+  }
+  :root:not([data-trial-dashboard]) .dashboard-brand-mark svg { width: 30px; height: 30px; }
+  :root:not([data-trial-dashboard])[data-theme="dark"] .dashboard-brand-mark { color: #dce9f5; }
+  :root:not([data-theme="dark"]) body { background-color: var(--brand-paper); }
+  :root:not([data-theme="dark"]):not([data-trial-dashboard]) #shellPrimary button[aria-current="page"] {
+    background: var(--brand-selected);
+    box-shadow: none;
+  }
+  :root:not([data-theme="dark"]):not([data-trial-dashboard]) #shellPrimary button[aria-current="page"]::before {
+    content: ""; position: absolute; inset: 0 auto 0 0; width: 3px;
+    background: var(--geometry-selected-edge); pointer-events: none;
+  }
+  :root:not([data-theme="dark"]) #shellPrimary button { position: relative; }
+  :root:not([data-theme="dark"]) #shellPrimary button:active { background: var(--brand-press); }
+  :root:not([data-theme="dark"]):not([data-trial-dashboard]) :is(#shellFunctionRail .nav-button, #shellAdminSections button) {
+    background-color: var(--surface); color: var(--brand-ink); box-shadow: none;
+  }
+  :root:not([data-theme="dark"]) :is(#shellFunctionRail .nav-button.active, #shellAdminSections button[aria-current="page"]) {
+    background-color: var(--brand-selected); color: var(--geometry-blue);
+    border-color: var(--geometry-selected-edge);
+  }
+  :root:not([data-theme="dark"]) #shellFunctionRail .nav-button.active > span { color: currentColor; }
+  :root:not([data-theme="dark"]) :is(#shellFunctionRail button, #shellAdminSections button, .view .button):active:not(:disabled) {
+    background-color: var(--brand-press);
+  }
+  :root:not([data-theme="dark"]) :is(.view .button, .page-actions .button, .topbar .button) {
+    box-shadow: none; background-image: none;
+  }
+  :root:not([data-theme="dark"]) :is(.view, .topbar, .page-actions, #shellFunctionRail, #shellAdminSections, #trialAnalysisFilters)
+    :is(button, select, summary, input, textarea):focus-visible {
+    outline: 3px solid var(--brand-focus); outline-offset: 2px;
+  }
+  :root:not([data-theme="dark"]) :is(.view, .topbar, #trialAnalysisFilters) .button:not(.primary, .danger-quiet):hover:not(:disabled) {
+    border-color: var(--brand-focus); background-color: var(--brand-hover);
+  }
+}
+/* Traceability items are grouped term/value pairs, unlike the Contour definition list. */
+@media (min-width: 1101px) {
+  #shellFunctionRail .nav-button:not(:has(> span)) { grid-template-columns: minmax(0, 1fr); }
+  #reportTraceability { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #reportTraceability > div { min-width: 0; }
+}
+
+/* Keep helpers below aligned controls in the two desktop forms. */
+@media (min-width: 1101px) {
+  :root:not([data-trial-dashboard]) #shellPrimary .shell-badge { display: none; }
+
+  #contours .contour-controls,
+  #monitoringReportForm > .form-grid:has(#reportPeriodType) {
+    --form-caption-height: 16px;
+    --form-caption-gap: 6px;
+    --form-control-height: 38px;
+    display: grid;
+    align-items: start;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  :is(#contours .contour-controls, #monitoringReportForm > .form-grid:has(#reportPeriodType))
+    > label:not(.hidden, .file-button) {
+    align-content: start;
+    min-width: 0;
+    line-height: var(--form-caption-height);
+    gap: var(--form-caption-gap);
+  }
+
+  :is(#contours .contour-controls, #monitoringReportForm > .form-grid:has(#reportPeriodType))
+    > label > :is(input:not([type="checkbox"], [type="file"]), select:not([multiple])) {
+    height: var(--form-control-height);
+    min-width: 0;
+  }
+
+  #contours #contourColourNote { align-self: center; }
+  #contours #refreshContour,
+  :is(#contours .contour-controls, #monitoringReportForm > .form-grid:has(#reportPeriodType))
+    > label:has(> input[type="checkbox"]) {
+    margin-top: calc(var(--form-caption-height) + var(--form-caption-gap));
+    min-height: var(--form-control-height);
+  }
+
+  :is(#contours .contour-controls, #monitoringReportForm > .form-grid:has(#reportPeriodType))
+    > label:has(> input[type="checkbox"]) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  :is(#contourLabels, #trialIncludeGroundHistory) {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  #contours #contourSurfaceOpacity { margin: 0; padding-inline: 0; }
+  #monitoringReportForm .file-button:has(#reportLogo) {
+    min-height: var(--form-control-height);
+    justify-self: start;
+    max-width: 100%;
+  }
+}

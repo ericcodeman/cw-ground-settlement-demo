@@ -1,20 +1,20 @@
 {
   "schema": 1,
   "name": "SenseOne — Browser Trial",
-  "sourceVersion": "54488625c5ae3bfac6e879d09d1539623acb17ab",
-  "build": "browser-trial-c7fe17fc4c6bbc40",
+  "sourceVersion": "5c30824df0b7d08ab19d2d1a67c1620e34920b49",
+  "build": "browser-trial-e56219f841c4d671",
   "methods": [
     "Original Ordinary Kriging",
     "Original monitoring report snapshot and PDFKit layout",
     "Original Structure and UU calculation cores"
   ],
   "storage": "Independent page memory; explicit JSON export/import; refresh resets data",
-  "payloadHash": "c7fe17fc4c6bbc40fb4e811195ac226b7cd88399965f9da3575d8f227c183cf0",
+  "payloadHash": "e56219f841c4d6715fab738adc3ad76adafadf7fa823bbfad422d28585db424b",
   "files": [
     {
       "name": "THIRD-PARTY-NOTICES.md",
-      "bytes": 6882,
-      "sha256": "3f1578ec45e8dc9acbd02247667d8aac9fc8a6847804719f041519928d11ffb8"
+      "bytes": 7014,
+      "sha256": "2124011fb911516399ace7fd170c79b919f4eea06a98fd34d79ca217597770bf"
     },
     {
       "name": "contour-background.js",
@@ -73,8 +73,8 @@
     },
     {
       "name": "index.html",
-      "bytes": 534059,
-      "sha256": "d3be124a98a0cb5c713c8d8a450315097c611658d562c6ef347d97e4c0e311f8"
+      "bytes": 541063,
+      "sha256": "f0f2e9c6a116bbd82573dd557a3c5cbd3f9ff8a1acb59071e03a6a4bd5306486"
     },
     {
       "name": "konva.js",
@@ -688,13 +688,13 @@
     },
     {
       "name": "trial-shell.css",
-      "bytes": 7148,
-      "sha256": "18b368d53dfb5d179dd04e6db6ecb2f5d9a41d7940df45620776162e4557ffc8"
+      "bytes": 29500,
+      "sha256": "f31efe3be864cb33dbd33d3668f2750cb6d183e51a92c0c57bc7d4ebdcb8a800"
     },
     {
       "name": "trial-shell.js",
-      "bytes": 18482,
-      "sha256": "8dc290689f60b8a22c97c97a3edc075e5c501985b94905af5694e282af67b0f4"
+      "bytes": 21539,
+      "sha256": "6305950bf5f871e69c8b6194f84d3fa5fc35edf9f1e3714966bdd444ab6db6cd"
     },
     {
       "name": "trial-workbench.js",
