@@ -5,6 +5,18 @@
   "use strict";
 
   const traditional = {
+    "Assessment date": "評估日期",
+    "APP build": "APP 建置版本",
+    "Quality checks": "品質檢查",
+    "Observation status at assessment date": "評估日期的觀測狀態",
+    "Data freshness": "資料時效",
+    "Stale": "已過期",
+    "Fresh": "未過期",
+    "Not configured": "未配置",
+    "No observation": "沒有讀數",
+    "Positive and negative thresholds represent absolute-magnitude assessment. The chart and tables use the same snapshot.": "正負兩方向門檻對應絕對變化量判定。圖表及資料表使用同一快照。",
+    "Plausibility rules not configured. No plausibility checks have been performed. Basic number, date and point identity validation remains active.": "合理性規則未配置，未執行合理性檢查。基本數字、日期及測點身份驗證仍然有效。",
+    "Configured plausibility checks only; disabled checks have not been performed. Basic number, date and point identity validation remains active.": "僅執行已配置的合理性檢查，停用的項目未檢查。基本數字、日期及測點身份驗證仍然有效。",
     "Settlement Monitoring Report": "地面沉降監測報告",
     "Engineering review aid - authorised interpretation required": "工程覆核參考，須由獲授權人員解讀",
     "English": "英文",

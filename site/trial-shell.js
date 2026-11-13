@@ -142,8 +142,11 @@
     const footer = aside.querySelector(".system-indicator"); footer.className = "shell-status"; footer.id = "shellPersistenceStatus";
     const sessionStatus = node("p"); sessionStatus.id = "shellSessionStatus"; sessionStatus.setAttribute("role", "status"); toolbar.append(sessionStatus);
     const initialRevision = BrowserTrial.revision();
+    let viewportReturn = null;
     const activate = activateView;
     activateView = function (view, options = {}) {
+      // Explicit navigation and role/project restoration supersede a resize return.
+      if (!options.viewportTransition) viewportReturn = null;
       activate(view, options);
       const visible = buttons.find(b => document.getElementById(b.dataset.view) && !document.getElementById(b.dataset.view).classList.contains("hidden") && eligible(b));
       if (visible) sync(visible.dataset.view);
@@ -168,6 +171,9 @@
     window.addEventListener("trial-data-changed", () => { changed = true; refresh(); });
     window.addEventListener("trial-report-archived", () => { completeExportRevision = ""; reportsChanged = true; status(); });
     window.addEventListener("trial-complete-backup-exported", () => { completeExportRevision = BrowserTrial.revision(); reportsChanged = false; status(); });
+    window.addEventListener("beforeunload", event => {
+      if (changed || reportsChanged || BrowserTrial.revision() !== initialRevision) { event.preventDefault(); event.returnValue = ""; }
+    });
     window.addEventListener("monitoring-app-ready", refresh);
     function eligible(button) { return !button.classList.contains("permission-hidden") && !button.classList.contains("release-hidden"); }
     function available() { return buttons.filter(eligible).map(b => b.dataset.view); }
@@ -186,10 +192,10 @@
       const revision = BrowserTrial.revision();
       if (saveBlocked) footer.textContent = "Save failed · recover input before leaving";
       else if (saving || hasUnsavedChanges) footer.textContent = "Saving / pending in this session";
-      else if (completeExportRevision === revision) footer.textContent = "Complete backup download requested";
+      else if (completeExportRevision === revision) footer.textContent = "Complete backup download requested; file save not verified. Confirm the file before leaving; refresh resets session data";
       else if (reportsChanged) footer.textContent = "Session includes report changes · export complete backup if needed";
       else if (exportRevision === revision) footer.textContent = "Project JSON download requested · PDFs excluded";
-      else if (changed || revision !== initialRevision) footer.textContent = "Session changes · export data if needed";
+      else if (changed || revision !== initialRevision) footer.textContent = "Unbacked session changes · download a complete backup before leaving; refresh resets data";
       else footer.textContent = "Session memory · refresh resets data";
       sessionStatus.textContent = footer.textContent;
     }
@@ -247,10 +253,20 @@
         const section = document.getElementById(button.dataset.view);
         return section && !section.classList.contains("hidden") && eligible(button);
       })?.dataset.view;
-      if (!view) return;
+      if (!view) { viewportReturn = null; return; }
+      if (!isCompact() && viewportReturn) {
+        const target = viewportReturn; viewportReturn = null;
+        if (view === "dashboard" && target.role === currentUser.role && target.project === activeProjectId
+          && available().includes(target.view) && !qualityPreviewOpen && !projectChangeBlocked()) {
+          currentModule = target.module;
+          activateView(target.view, { persist: false, scroll: false, viewportTransition: true });
+          return;
+        }
+      }
       if (isCompact() && !model.compactModuleFor(view, currentModule) && !qualityPreviewOpen && !projectChangeBlocked()) {
+        viewportReturn = { view, module: currentModule, role: currentUser.role, project: activeProjectId };
         currentModule = "today";
-        activateView("dashboard", { persist: false, scroll: false });
+        activateView("dashboard", { persist: false, scroll: false, viewportTransition: true });
       } else sync(view);
     }
     narrowViewport.addEventListener("change", updateViewport);

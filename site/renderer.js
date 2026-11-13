@@ -54,7 +54,7 @@ function renderMonitoringReportPdf(report, options = {}) {
     }
     function ensure(height) { if (doc.y + height > 760) addPage(); }
     function heading(value, level = 2) {
-      ensure(level === 1 ? 54 : 60);
+      ensure(level === 1 ? 54 : report.interpretationVersion ? 140 : 60);
       if (level !== 1) doc.moveDown(0.5);
       doc.fillColor("#12395d").fontSize(level === 1 ? 22 : 14).text(level === 1 ? value : t(value), 42, doc.y, { width: contentWidth });
       if (level !== 1) doc.strokeColor("#d7e0e7").moveTo(42, doc.y + 3).lineTo(553, doc.y + 3).stroke().moveDown(0.5);
@@ -83,6 +83,11 @@ function renderMonitoringReportPdf(report, options = {}) {
         doc.moveDown(0.7);
         doc.x = x;
         return;
+      }
+      if (report.interpretationVersion) {
+        doc.fontSize(7.2);
+        const firstHeight = Math.max(21, ...columns.map((column, index) => doc.heightOfString(short(rows[0][index], column.maximum || 280), { width: column.width - 8, lineGap: 1 }) + 8));
+        ensure(30 + firstHeight);
       }
       drawHeader();
       rows.forEach((cells, rowIndex) => {
@@ -123,9 +128,9 @@ function renderMonitoringReportPdf(report, options = {}) {
       if (!values.length) { paragraph("No observations are available for this threshold group in the selected period."); return; }
       const x = 62, y = 145, width = 470, height = 250;
       const timestamps = values.map(item => Date.parse(item.date + "T00:00:00Z"));
-      const thresholdValues = group.thresholds.filter(item => Number.isFinite(item.valueMm)).map(item => -Math.abs(item.valueMm));
+      const thresholdValues = group.thresholds.filter(item => Number.isFinite(item.valueMm)).flatMap(item => report.interpretationVersion ? [-Math.abs(item.valueMm), Math.abs(item.valueMm)] : [-Math.abs(item.valueMm)]);
       let minX = Math.min(...timestamps), maxX = Math.max(...timestamps); if (minX === maxX) maxX += 86400000;
-      let minY = Math.min(0, ...values.map(item => item.settlement), ...thresholdValues), maxY = Math.max(0, ...values.map(item => item.settlement));
+      let minY = Math.min(0, ...values.map(item => item.settlement), ...thresholdValues), maxY = Math.max(0, ...values.map(item => item.settlement), ...(report.interpretationVersion ? thresholdValues : []));
       if (minY === maxY) { minY -= 1; maxY += 1; }
       const px = date => x + (Date.parse(date + "T00:00:00Z") - minX) / (maxX - minX) * width;
       const py = value => y + height - (value - minY) / (maxY - minY) * height;
@@ -137,9 +142,11 @@ function renderMonitoringReportPdf(report, options = {}) {
       }
       group.thresholds.forEach((threshold, index) => {
         if (!Number.isFinite(threshold.valueMm)) return;
-        const value = -Math.abs(threshold.valueMm), lineY = py(value);
+        for (const direction of (report.interpretationVersion ? [-1, 1] : [-1])) {
+        const value = direction * Math.abs(threshold.valueMm), lineY = py(value);
         doc.strokeColor(index % 2 ? "#dc2626" : "#d97706").dash(4, { space: 3 }).moveTo(x, lineY).lineTo(x + width, lineY).stroke().undash();
-        doc.fillColor("#7f1d1d").fontSize(7).text(`${t(threshold.label)} -${number(threshold.valueMm)} mm`, x + width - 100, lineY - 9, { width: 98, align: "right" });
+        doc.fillColor("#7f1d1d").fontSize(7).text(`${t(threshold.label)} ${value >= 0 ? "+" : "-"}${number(Math.abs(threshold.valueMm))} mm`, x + width - 100, lineY - 9, { width: 98, align: "right" });
+        }
       });
       group.series.forEach((series, seriesIndex) => {
         const points = series.values;
@@ -160,7 +167,7 @@ function renderMonitoringReportPdf(report, options = {}) {
         doc.fillColor("#263746").fontSize(7).text(series.pointId, legendX + 12, legendY, { width: 100 });
       });
       doc.y = legendY + 28;
-      paragraph("Threshold baselines are shown as negative values. The chart and detail tables use the same immutable snapshot.", { size: 8 });
+      paragraph(report.interpretationVersion ? "Positive and negative thresholds represent absolute-magnitude assessment. The chart and tables use the same snapshot." : "Threshold baselines are shown as negative values. The chart and detail tables use the same immutable snapshot.", { size: 8 });
     }
 
     addPage();
@@ -172,6 +179,10 @@ function renderMonitoringReportPdf(report, options = {}) {
     doc.fillColor("#526473").fontSize(12).text(report.projectName, 42, doc.y, { width: 400 }).moveDown(1);
     doc.x = 42;
     table([{ label: "Period", width: 180 }, { label: "Generated", width: 170 }, { label: "Revision", width: 161 }], [[report.period.label, report.generatedAt, report.sourceRevision]]);
+    if (report.interpretationVersion) {
+      paragraph(t("Assessment date") + ": " + report.assessmentDate + " | " + t("APP build") + ": " + report.appBuild, {size:8});
+      paragraph(t(report.qualityConfigurationNotice), {size:8});
+    }
     summaryCards();
     paragraph(report.signConvention, { colour: "#7c2d12" });
     paragraph(report.thresholdAssessment, { colour: "#7c2d12" });
@@ -189,11 +200,15 @@ function renderMonitoringReportPdf(report, options = {}) {
       heading("Monitoring point summary");
       table([
         { label: "Point / facility", width: 100 }, { label: "Rule", width: 48 }, { label: "Initial mPD", width: 54 }, { label: "Records", width: 40 }, { label: "Opening date / mm", width: 75 }, { label: "Closing date / mm", width: 75 }, { label: "Period movement mm", width: 58 }, { label: "Peak / worst", width: 61 }
-      ], report.markers.map(item => [`${item.pointId}\n${item.facility}`, t(item.ruleKey), number(item.baseline, 3), item.observationCount, `${text(item.openingDate)}\n${number(item.openingSettlement)}`, `${text(item.closingDate)}\n${number(item.closingSettlement)}`, number(item.periodMovement), `${text(item.peakDate)} ${number(item.peakSettlement)}\n${t(item.worstSeverity)}`]));
+      ], report.markers.map(item => [`${item.pointId}\n${item.facility}`, t(item.ruleKey), number(item.baseline, report.interpretationVersion ? 4 : 3), item.observationCount, `${text(item.openingDate)}\n${number(item.openingSettlement)}`, `${text(item.closingDate)}\n${number(item.closingSettlement)}`, number(item.periodMovement), `${text(item.peakDate)} ${number(item.peakSettlement)}\n${t(item.worstSeverity)}`]));
+    }
+    if (report.interpretationVersion && report.layout.sections.includes("summary")) {
+      heading("Observation status at assessment date");
+      table([{label:"Point",width:85},{label:"Reading mPD",width:85},{label:"Status",width:100},{label:"Data freshness",width:100},{label:"Assessment date",width:141}], report.markers.map(item => [item.pointId,number(item.assessmentObservation?.reading,4),t(item.assessmentObservation?.severity || "No observation"),t(({stale:"Stale",fresh:"Fresh",missing:"No observation",not_configured:"Not configured"})[item.freshness.status] || item.freshness.status), report.assessmentDate]));
     }
     if (report.layout.sections.includes("daily")) {
       heading("Daily observation detail");
-      table([{ label: "Date", width: 62 }, { label: "Point", width: 55 }, { label: "Facility", width: 90 }, { label: "Reading mPD", width: 62 }, { label: "Settlement mm", width: 62 }, { label: "Status", width: 65 }, { label: "Note / source", width: 115 }], report.dailyRecords.map(item => [item.date, item.pointId, item.facility, number(item.reading, 3), number(item.settlement), t(item.severityLabel), `${item.note}\n${item.sourceKey}${item.observationReview ? "\n" + t("Review") + ": " + t(item.observationReview) : ""}`]));
+      table([{ label: "Date", width: 62 }, { label: "Point", width: 55 }, { label: "Facility", width: 90 }, { label: "Reading mPD", width: 62 }, { label: "Settlement mm", width: 62 }, { label: "Status", width: 65 }, { label: "Note / source", width: 115 }], report.dailyRecords.map(item => [item.date, item.pointId, item.facility, number(item.reading, report.interpretationVersion ? 4 : 3), number(item.settlement), t(item.severityLabel), `${item.note}\n${item.sourceKey}${item.observationReview ? "\n" + t("Review") + ": " + t(item.observationReview) : ""}`]));
     }
     const summaryTable = (title, rows) => { heading(title); table([{ label: "Period", width: 65 }, { label: "Point", width: 55 }, { label: "Records", width: 42 }, { label: "First / last", width: 90 }, { label: "Closing mm", width: 60 }, { label: "Movement mm", width: 60 }, { label: "Peak date / mm", width: 78 }, { label: "Worst status", width: 61 }], rows.map(item => [item.period, item.pointId, item.observations, `${item.firstDate}\n${item.lastDate}`, number(item.closingSettlement), number(item.movementMm), `${item.peakDate}\n${number(item.peakSettlement)}`, t(item.worstSeverity)])); };
     if (report.layout.sections.includes("weekly")) summaryTable("Weekly summaries", report.weeklySummaries);

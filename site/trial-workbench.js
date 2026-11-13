@@ -145,6 +145,8 @@
       key = undefined;
       refresh();
       resetSchedule();
+      renderStats(); renderPoints(); renderAlarmList();
+      if (!document.getElementById("dashboard").classList.contains("hidden")) renderDashboardWebMap();
       message.textContent = action === "clear" ? "Schedule removed. This point is now unconfigured." : "Schedule saved in this trial session.";
     } catch (error) {
       message.textContent = error.message;

@@ -1,7 +1,7 @@
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./monitoring-core"));
-  else root.DashboardData = factory(root.MonitoringCore);
-})(typeof window === "undefined" ? globalThis : window, function (core) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./monitoring-core"), require("./data-interpretation"));
+  else root.DashboardData = factory(root.MonitoringCore, root.DataInterpretation);
+})(typeof window === "undefined" ? globalThis : window, function (core, interpretation) {
   "use strict";
 
   const DAY_MS = 24 * 60 * 60 * 1000;
@@ -55,31 +55,17 @@
   }
 
   function qualityFreshness(state) {
-    const missingDays = state.qualityRules?.missingDays;
-    const asOf = state.qualityAsOf;
-    if (!core.finiteNumber(missingDays) || Number(missingDays) < 0 || !core.isoDate(asOf)) {
-      const safe = state.dashboardQualityFreshness;
-      if (safe?.configured === true && Number.isInteger(safe.missing) && safe.missing >= 0
-          && Number.isInteger(safe.stale) && safe.stale >= 0) {
-        return { configured: true, missing: safe.missing, stale: safe.stale, asOf: null, missingDays: null, points: [] };
-      }
-      return { configured: false, missing: 0, stale: 0, asOf: null, missingDays: null, points: [] };
-    }
+    const asOf = interpretation.assessmentDate(state);
     const latest = latestRecords(state, asOf);
     const points = (state.points || []).map(point => {
-      const record = latest.get(point.id);
-      if (!record) return { pointId: point.id, freshness: "missing", observationDate: null, ageDays: null };
-      const ageDays = dayDifference(asOf, record.date);
-      return { pointId: point.id, freshness: ageDays > Number(missingDays) ? "stale" : "fresh", observationDate: record.date, ageDays };
+      const item = interpretation.freshness(state, point.id, latest.get(point.id)?.date, asOf);
+      return { pointId: point.id, ...item, freshness: item.status };
     });
-    return {
-      configured: true,
-      missing: points.filter(point => point.freshness === "missing").length,
-      stale: points.filter(point => point.freshness === "stale").length,
-      asOf,
-      missingDays: Number(missingDays),
-      points
-    };
+    return { configured: points.some(point => point.intervalDays !== null),
+      missing: points.filter(point => point.status === "missing").length,
+      stale: points.filter(point => point.status === "stale").length,
+      notConfigured: points.filter(point => point.status === "not_configured").length,
+      asOf, missingDays: null, points };
   }
 
   function recordMatchesScope(record, scope, latest) {
@@ -100,7 +86,8 @@
     const settlementFor = options.settlementFor || core.settlement;
     if (typeof statusFor !== "function") throw new Error("Dashboard summary needs the active threshold status function.");
     const pointsById = new Map((state.points || []).map(point => [point.id, point]));
-    const latest = latestRecords(state);
+    const asOf = interpretation.assessmentDate(state);
+    const latest = latestRecords(state, asOf);
     const workflow = workflowByPoint(state);
     const current = [];
     for (const [pointId, record] of latest) {
@@ -113,6 +100,7 @@
         record,
         status,
         settlement: settlementFor(point, record),
+        freshness: interpretation.freshness(state, pointId, record.date, asOf),
         workflowAvailable: workflow !== null,
         workflowStatus: workflow === null ? null : followup?.status || "none",
         followup: followup || null

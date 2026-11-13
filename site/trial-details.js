@@ -90,6 +90,11 @@
       add("Current comparison", record ? display(settlementFor(point, record), 1, "mm") : "Unavailable");
       const currentStatus = record ? statusFor(point, record) : "Unavailable";
       add("Current severity", currentStatus === "Okay" ? "Below configured thresholds" : currentStatus);
+      const at = DataInterpretation.assessmentDate(BrowserTrial.getState());
+      const freshness = DataInterpretation.freshness(BrowserTrial.getState(), pointId, record?.date, at);
+      add("Data freshness", DataInterpretation.labels[freshness.status]);
+      add("Freshness assessment date", at + " (Hong Kong)");
+      add("Measurement interval", freshness.intervalDays == null ? "Not configured" : freshness.intervalDays + " days");
       const history = add("Recorded operational assessment", "Unknown");
       const approvedHistory = add("Approved historical assessment", "Unknown");
       const review = add("Observation review", record ? "Review state unavailable" : "No observation selected");

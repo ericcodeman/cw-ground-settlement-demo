@@ -70,7 +70,7 @@
     const dialog = document.createElement("dialog");
     dialog.style.cssText = "width:min(1100px,94vw);max-height:90vh;overflow:auto;border:1px solid #64748b;border-radius:8px;padding:20px;background:var(--card,#fff);color:var(--text,#172b4d)";
     const needsReason = result.changes.some(c => c.requiresReason) || (result.facilityChanges || []).length > 0 || result.findings.length > 0;
-    dialog.innerHTML = `<h2>Monitoring observation preview</h2><p>${result.changes.length} observation additions/corrections · ${(result.facilityChanges || []).length} facility corrections · ${result.skipped.length} duplicate rows · ${result.errors.length} errors · ${result.findings.length} quality findings</p>
+    dialog.innerHTML = `<h2>Monitoring observation preview</h2><p role="status">${esc(root.DataInterpretation ? root.DataInterpretation.qualityNotice(result.rules || context.state?.qualityRules || {}) : "Plausibility configuration unavailable; do not assume checks are complete.")}</p><p>${result.changes.length} observation additions/corrections · ${(result.facilityChanges || []).length} facility corrections · ${result.skipped.length} duplicate rows · ${result.errors.length} errors · ${result.findings.length} quality findings</p>
       <p>Review all proposed values before saving. Quality verification does not clear engineering exceedances.</p>
       ${table(["Data row", "Point", "Date", "Baseline mPD", "Previous earlier date", "Previous mPD", "Elapsed days", "Interval change mm", "Existing mPD", "Proposed mPD", "Accumulated mm", "Operation"], observationRows(result, context.state).map(r => `<tr>${[r.change.row,r.change.after.pointId,r.change.after.date,r.baseline,r.previousDate,r.previous,r.elapsedDays,r.changeMm,r.existing,r.proposed,r.accumulatedMm,r.change.kind].map(v => `<td>${esc(v)}</td>`).join("")}</tr>`))}
       ${context.groundPreview ? groundBasis(context.groundPreview) : ""}
@@ -100,7 +100,7 @@
   function mount(host, context) {
     host.innerHTML = `<h2>Data quality configuration and review</h2><p>Quality rules prompt verification. They do not change 3A/5A severity or exclude observations. Blank means disabled; configure values approved for the project.</p>
       <form id="qualityRulesForm" class="form-grid">${Object.entries(labels).map(([key,label]) => `<label>${label}<input name="${key}" type="number" min="${key === "consecutiveCount" ? 2 : 0}" ${key === "consecutiveCount" ? 'max="10000"' : ""} step="${key === "consecutiveCount" ? 1 : "any"}" placeholder="Disabled"></label>`).join("")}
-      <label>Missing-data assessment through date<input name="asOf" type="date"><small>Cutoff applies only to missing-data freshness; blank disables freshness checks. All observations are still checked for changes, rates, repeated readings and gaps.</small></label>
+      <label>Assessment through date<input name="asOf" type="date"><small>Dashboard, map and point freshness use this date; blank uses today in Hong Kong with each configured monitoring schedule. Quality checks retain their own configured rules. Saved reports retain their captured assessment date.</small></label>
       <button class="button primary" type="submit">Save quality rules</button></form><p id="qualityMessage" role="status"></p>
       <label>Search marker / finding / reviewer<input id="qualitySearch" type="search"></label>
       <h3>Quality findings</h3><div id="qualityFindingRows"></div>
